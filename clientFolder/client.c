@@ -13,19 +13,28 @@
 #include <errno.h>
 #include <string.h>
 
-#define MAXBUFSIZE	(512)
+#define MAXBUFSIZE	(143)
 
+//Structure for transmitter and receiver packet. 1 packet = 576 bytes (MTU for IPv4)
+typedef struct 
+{
+	int index;
+	int buffer[MAXBUFSIZE];
+}PACKET;
 
 int main (int argc, char * argv[])
-{
+{	
+	int prev_index;
+	long num, num_bytes;
 	char command[100];
 	char data[512];
-	int len[1];
+	int len;
 	int errsv;									//Store errno
 	int sbytes = -1;                             // number of bytes send by sendto()
 	int rbytes = -1;                             // number of bytes send by recvfrom()
 	int sockfd;                               //this will be our socket
 	void *buffer;
+	PACKET *pkt = NULL;;
 	FILE *fp;
 	FILE *fp_temp;
 
@@ -52,13 +61,34 @@ int main (int argc, char * argv[])
 	if ((sockfd = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
 	{
 		printf("unable to create client socket");
+		exit(1);
 	}
 
 	struct sockaddr_in from_addr;
 	socklen_t addr_length = sizeof(struct sockaddr);
-	// memset(buffer, 0, sizeof(buffer));
+	
+	memset(command, 0, sizeof(command));
+	printf("Size of each packet is %ld\n", sizeof(pkt->buffer) + sizeof(pkt->index));
+
+	// while(1)
+	// {
+	// 	printf("\r\n     *** Main Menu ***\n\r");
+	// 	printf("Enter the following commands for file transfers / handling\n");
+ //        printf("get <file_name>\n");
+ //        printf("put <file_name>\n");
+ //        printf("delete <file_name>\n");
+ //        printf("ls\n");
+ //        printf("exit\n");
+ //        printf("Type in the command followed by the <file_name>, if the command requires\n");
+ //        // scanf("%s", command);
+ //        // gets(command);
+ //        fgets(command, sizeof(command), stdin);
+ //        printf("Sending entered command to server\n");
+ //    	sbytes = sendto(sockfd, command, (sizeof(command) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 
 
+
+	// }
 
 	strcpy(command, "Sending a text file");
 	printf("%s\n", command);
@@ -75,7 +105,7 @@ int main (int argc, char * argv[])
 		memset(command, 0, sizeof(command));
 		// sbytes = sendto(sockfd, len, (sizeof(command) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 		fp = fopen("foo2", "r");		//open file in read mode
-		fp_temp = fopen("foo1_temp", "w+");
+		fp_temp = fopen("foo2_temp", "w");
 
 
 		if(fp == NULL)
@@ -85,23 +115,35 @@ int main (int argc, char * argv[])
 		}
 
 	   	fseek(fp, 0, SEEK_END);
-   		len[0] = ftell(fp);
-		printf("Length of file is %d bytes\n", len[0]);
-		sbytes = sendto(sockfd, len, (sizeof(len) + 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+   		len = ftell(fp);
+		printf("Length of file is %d bytes\n", len);
+		sbytes = sendto(sockfd, &len, (sizeof(len) + 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 		fseek(fp, 0, SEEK_SET);
-		// buffer = (char *)malloc(len[0]);
-		buffer = malloc(len[0]);
-		fread(buffer, 1, len[0], fp);
-		// printf("Number of bytes read: %d\n",i);
-		fwrite(buffer, 1, len[0], fp_temp);
-		sbytes = sendto(sockfd, buffer, len[0], 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-
-		// while(fgets(data, 512, fp) !=NULL)
-		// {
-		// 	sbytes = sendto(sockfd, data, (sizeof(data) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-		// 	// printf("%s", data);
-		// 	memset(data, 0, sizeof(data));
-		// }
+		printf("Size of data buffer is %ld\n", sizeof(pkt->buffer));
+		// *buffer = malloc(sizeof(int) * (int)MAXBUFSIZE);
+		pkt = (PACKET *)malloc(sizeof(pkt->buffer) + sizeof(pkt->index));
+		num = (len / (sizeof(int)));
+		// printf("Number of packets needed is %ld\n", num);
+		pkt->index = 0;
+		while(len > 0)
+		{
+			prev_index = pkt->index;
+			printf("Entered while loop\n");
+			pkt->index++;
+			num_bytes = fread(pkt->buffer, 1, (int)MAXBUFSIZE, fp);
+			// printf("File read done\n");
+			if(pkt->index > prev_index)
+			{
+				fwrite(pkt->buffer, 1, num_bytes, fp_temp);
+			}
+			// printf("File write done\n");
+			memset(pkt->buffer, 0, (int)MAXBUFSIZE);
+			len = len - num_bytes;
+		}
+		// fread(buffer, 1, len, fp);
+		// printf("Number of bytes read: %d\n",i);		
+		// fwrite(buffer, 1, len, fp_temp);
+		// sbytes = sendto(sockfd, buffer, &len, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 
 	}
 
