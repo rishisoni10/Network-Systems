@@ -12,6 +12,7 @@
 #include <memory.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #define MAXBUFSIZE	(1024)
 
@@ -25,7 +26,7 @@ typedef struct
 
 int main (int argc, char * argv[])
 {	
-	int sent_index, count;
+	int sent_index, count, error;
 	long pkt_size, num_bytes, num_pkts;
 	char command[100];
 	char data[512];
@@ -35,7 +36,8 @@ int main (int argc, char * argv[])
 	int rbytes = -1;                             // number of bytes send by recvfrom()
 	int sockfd;                                  //this will be our socket
 	void *buffer;
-	PACKET *pkt = NULL;;
+	struct timeval timeout;
+	PACKET *pkt = NULL, *pkt_ack = NULL;
 	FILE *fp;
 	FILE *fp_temp;
 
@@ -119,11 +121,18 @@ int main (int argc, char * argv[])
 		sbytes = sendto(sockfd, &len, (sizeof(len) + 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 		printf("Size of data buffer is %ld\n", sizeof(pkt->buffer));
 		pkt = (PACKET *)malloc(pkt_size);
+		pkt_ack = (PACKET *)malloc(pkt_size);
+
 		num_pkts = len / pkt_size;
 		printf("Number of packets needed is %ld\n", num_pkts);
 		
 		pkt->index = 0;
 		count = 0;
+
+		//Setting the timeout using setsockopt()
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 500000;  //500ms timeout
+		setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 		while(len > 0)
 		{
 			pkt->index++;
@@ -133,19 +142,36 @@ int main (int argc, char * argv[])
 			pkt->data_length = num_bytes;
 
 			sbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			memset(pkt, 0, pkt_size);
-			rbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&from_addr, &addr_length);  
-			if(pkt->index == sent_index)
+			printf("Sent index is %d\n", pkt->index);
+			memset(pkt_ack, 0, pkt_size);
+			rbytes = recvfrom(sockfd, pkt_ack, pkt_size, 0, (struct sockaddr *)&from_addr, &addr_length);  
+			while(rbytes < 0)
+			{
+				error = errno;
+				memset(pkt_ack, 0, pkt_size);
+				printf("The error number is %d\n", error);
+				//Sending data packet again if timeout occurs
+				sbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+				printf("Sent index is %d\n", pkt->index);
+				rbytes = recvfrom(sockfd, pkt_ack, pkt_size, 0, (struct sockaddr *)&from_addr, &addr_length);  
+			}
+			
+			if(pkt_ack->index == sent_index)
 			{
 				printf("ACK received\n");
+				len = len - num_bytes;
 				count++;
+			}
+			else if(strcmp(pkt_ack->buffer, "Incorrect index. Send again"))
+			{
+				sbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 			}
 			else
 			{
 				printf("ACK not received\n");
 				break;
 			}
-			len = len - num_bytes;
+			// len = len - num_bytes;
 		}
 	}
 	printf("Number of ACKs is %d\n", count);

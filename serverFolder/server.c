@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
+#include <time.h>
 
 #define MAXBUFSIZE	(1024)
 
@@ -123,10 +124,15 @@ int main (int argc, char * argv[] )
 	index_req = 1;
 	while(file_size > 0)
 	{
+		for (long long i = 0; i < 1000000000; ++i)
+		{
+			/* code */
+		}
 		nbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
 		if(pkt->index == index_req)
 		{
 			printf("Correct data received\n");
+			printf("Received index is %d\n", pkt->index);
 			fwrite(pkt->buffer, 1, pkt->data_length, fp);
 			file_size = file_size - pkt->data_length;
 			printf("Current file size is %ld\n", file_size);
@@ -137,8 +143,11 @@ int main (int argc, char * argv[] )
 		}
 		else
 		{
-			printf("Incorrect data received\n");
-			break;
+			printf("Incorrect data received. Send data again\n");
+			strcpy(pkt->buffer, "Incorrect index. Send again");
+			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			// printf("Incorrect Received index is %d\n", pkt->index);
+			// break;
 		}
 		memset(pkt, 0, pkt_size);
 	}
