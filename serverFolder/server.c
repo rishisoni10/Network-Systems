@@ -13,7 +13,7 @@
 #include <memory.h>
 #include <string.h>
 
-#define MAXBUFSIZE	(143)
+#define MAXBUFSIZE	(1024)
 
 int isfilepresent(const char *filename);
 
@@ -21,21 +21,24 @@ int isfilepresent(const char *filename);
 typedef struct 
 {
 	int index;
+	int data_length;
 	int buffer[MAXBUFSIZE];
 }PACKET;
 
 
 int main (int argc, char * argv[] )
 {
+	int index_req; 
 	char file_name[10];
 	char msg[100];
-	int file_size[1], len;
+	int pkt_size;
+	int file_size;
 	int sockfd;                           //This will be our socket
 	struct sockaddr_in sin, remote;      //"Internet socket address structure"
 	unsigned int remote_length;         //length of the sockaddr_in structure
 	int nbytes;                        //number of bytes we receive in our message
 	void *buffer;             //a buffer to store our received message
-	PACKET pkt;
+	PACKET *pkt = NULL;
 	FILE *fp;
 	if (argc != 2)
 	{
@@ -107,23 +110,42 @@ int main (int argc, char * argv[] )
 	strcpy(msg, "Okay");
 	nbytes = sendto(sockfd, msg, (sizeof(msg) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 
-	memset(file_size, 0, sizeof(file_size));
-	nbytes = recvfrom(sockfd, file_size, sizeof(file_size), 0, (struct sockaddr *)&remote, &remote_length);
-	printf("The size of the file to be received is %d\n", file_size[0]);
-	len = file_size[0];
+	memset(&file_size, 0, sizeof(file_size));
+	nbytes = recvfrom(sockfd, &file_size, sizeof(file_size), 0, (struct sockaddr *)&remote, &remote_length);
+	printf("The size of the file to be received is %ld\n", file_size);
 	
-	buffer = malloc(len);		//Allocating a buffer large enough for incoming file
-	printf("Size of buffer is %ld\n", sizeof(buffer));
-	printf("Its length is %d\n", len);
-	printf("Writing received data in foo2\n");
+	pkt_size = sizeof(pkt->buffer) + sizeof(pkt->index) + sizeof(pkt->data_length);
+	pkt = (PACKET *)malloc(pkt_size);
+
+	printf("Writing received data in foo1\n");
 	fp = fopen("foo1", "w");
 
-	
-	nbytes = recvfrom(sockfd, buffer, len, 0, (struct sockaddr *)&remote, &remote_length);
-	fwrite(buffer, 1, len, fp);
+	index_req = 1;
+	while(file_size > 0)
+	{
+		nbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
+		if(pkt->index == index_req)
+		{
+			printf("Correct data received\n");
+			fwrite(pkt->buffer, 1, pkt->data_length, fp);
+			file_size = file_size - pkt->data_length;
+			printf("Current file size is %ld\n", file_size);
+			memset(pkt, 0, pkt_size);
+			pkt->index = index_req;
+			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			index_req++;
+		}
+		else
+		{
+			printf("Incorrect data received\n");
+			break;
+		}
+		memset(pkt, 0, pkt_size);
+	}
 
 	close(sockfd);
 }
+
 
 int isfilepresent(const char *filename)
 {

@@ -13,26 +13,27 @@
 #include <errno.h>
 #include <string.h>
 
-#define MAXBUFSIZE	(143)
+#define MAXBUFSIZE	(1024)
 
 //Structure for transmitter and receiver packet. 1 packet = 576 bytes (MTU for IPv4)
 typedef struct 
 {
 	int index;
-	int buffer[MAXBUFSIZE];
+	int data_length;
+	char buffer[MAXBUFSIZE];
 }PACKET;
 
 int main (int argc, char * argv[])
 {	
-	int prev_index;
-	long num, num_bytes;
+	int sent_index, count;
+	long pkt_size, num_bytes, num_pkts;
 	char command[100];
 	char data[512];
 	int len;
-	int errsv;									//Store errno
+	int errsv;									 //Store errno
 	int sbytes = -1;                             // number of bytes send by sendto()
 	int rbytes = -1;                             // number of bytes send by recvfrom()
-	int sockfd;                               //this will be our socket
+	int sockfd;                                  //this will be our socket
 	void *buffer;
 	PACKET *pkt = NULL;;
 	FILE *fp;
@@ -68,7 +69,8 @@ int main (int argc, char * argv[])
 	socklen_t addr_length = sizeof(struct sockaddr);
 	
 	memset(command, 0, sizeof(command));
-	printf("Size of each packet is %ld\n", sizeof(pkt->buffer) + sizeof(pkt->index));
+	pkt_size = sizeof(pkt->buffer) + sizeof(pkt->index) + sizeof(pkt->data_length);
+	printf("Size of each packet is %ld\n", pkt_size);
 
 	// while(1)
 	// {
@@ -85,9 +87,6 @@ int main (int argc, char * argv[])
  //        fgets(command, sizeof(command), stdin);
  //        printf("Sending entered command to server\n");
  //    	sbytes = sendto(sockfd, command, (sizeof(command) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-
-
-
 	// }
 
 	strcpy(command, "Sending a text file");
@@ -97,16 +96,14 @@ int main (int argc, char * argv[])
 	memset(command, 0, sizeof(command));
 	rbytes = recvfrom(sockfd, command, (int)MAXBUFSIZE, 0, (struct sockaddr *)&from_addr, &addr_length);  
 	printf("Server: %s\n", command);
-	// memset(command, 0, sizeof(command));
-
+	
 
 	if(strcmp(command, "Okay") == 0)
 	{
 		memset(command, 0, sizeof(command));
 		// sbytes = sendto(sockfd, len, (sizeof(command) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 		fp = fopen("foo2", "r");		//open file in read mode
-		fp_temp = fopen("foo2_temp", "w");
-
+		fp_temp = fopen("foo1_temp", "w");
 
 		if(fp == NULL)
 		{
@@ -116,36 +113,42 @@ int main (int argc, char * argv[])
 
 	   	fseek(fp, 0, SEEK_END);
    		len = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+		
 		printf("Length of file is %d bytes\n", len);
 		sbytes = sendto(sockfd, &len, (sizeof(len) + 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-		fseek(fp, 0, SEEK_SET);
 		printf("Size of data buffer is %ld\n", sizeof(pkt->buffer));
-		// *buffer = malloc(sizeof(int) * (int)MAXBUFSIZE);
-		pkt = (PACKET *)malloc(sizeof(pkt->buffer) + sizeof(pkt->index));
-		num = (len / (sizeof(int)));
-		// printf("Number of packets needed is %ld\n", num);
+		pkt = (PACKET *)malloc(pkt_size);
+		num_pkts = len / pkt_size;
+		printf("Number of packets needed is %ld\n", num_pkts);
+		
 		pkt->index = 0;
+		count = 0;
 		while(len > 0)
 		{
-			prev_index = pkt->index;
-			printf("Entered while loop\n");
 			pkt->index++;
+			sent_index = pkt->index;
+
 			num_bytes = fread(pkt->buffer, 1, (int)MAXBUFSIZE, fp);
-			// printf("File read done\n");
-			if(pkt->index > prev_index)
+			pkt->data_length = num_bytes;
+
+			sbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			memset(pkt, 0, pkt_size);
+			rbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&from_addr, &addr_length);  
+			if(pkt->index == sent_index)
 			{
-				fwrite(pkt->buffer, 1, num_bytes, fp_temp);
+				printf("ACK received\n");
+				count++;
 			}
-			// printf("File write done\n");
-			memset(pkt->buffer, 0, (int)MAXBUFSIZE);
+			else
+			{
+				printf("ACK not received\n");
+				break;
+			}
 			len = len - num_bytes;
 		}
-		// fread(buffer, 1, len, fp);
-		// printf("Number of bytes read: %d\n",i);		
-		// fwrite(buffer, 1, len, fp_temp);
-		// sbytes = sendto(sockfd, buffer, &len, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-
 	}
+	printf("Number of ACKs is %d\n", count);
 
 	close(sockfd);
 }
