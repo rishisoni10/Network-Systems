@@ -1,3 +1,21 @@
+/*
+* @file server.c
+* @brief UDP Server file
+*
+* This source file provides UDP/IP connection with a remote / local client for 
+* file transfer. A reliability protocol has been applied over UDP's unreliable
+* packet transmission protocol
+*
+* Tools used: GCC Compiler, GDB
+* Command to compile from source: make
+*
+*
+* @author Rishi Soni
+* @date September 24 2017
+* @version 1.0
+*
+*/
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -40,24 +58,13 @@ int file_size;
 struct sockaddr_in remote;      //"Internet socket address structure"
 unsigned int remote_length;         //length of the sockaddr_in structure
 int nbytes;                        //number of bytes we receive in our message
-// void *buffer;             //a buffer to store our received message
 PACKET *pkt = NULL, *pkt_ack = NULL;
 FILE *fp;
 
 int main (int argc, char * argv[] )
 {
-	// int index_req; 
-	// char msg[100];
-	// int pkt_size;
-	// int file_size;
 	int sockfd;                           //This will be our socket
 	struct sockaddr_in sin;
-	// struct sockaddr_in sin, remote;      //"Internet socket address structure"
-	// unsigned int remote_length;         //length of the sockaddr_in structure
-	// int nbytes;                        //number of bytes we receive in our message
-	// void *buffer;             //a buffer to store our received message
-	// PACKET *pkt = NULL;
-	// FILE *fp;
 	char msg[100];
 
 	if (argc != 2)
@@ -94,12 +101,10 @@ int main (int argc, char * argv[] )
 
 	remote_length = sizeof(remote);
 	pkt_size = sizeof(pkt->buffer) + sizeof(pkt->index) + sizeof(pkt->data_length);
-	printf("Size of each packet is %ld\n", pkt_size);
 	int key_len = strlen(key);
 	while(1)
 	{
-		printf("Entering server menu\n");
-		// memset(msg,0, sizeof(msg));
+		printf("Server menu:\n");
 		nbytes = recvfrom(sockfd, msg, (int)MAXBUFSIZE, 0, (struct sockaddr *)&remote, &remote_length);
 		printf("Client: %s\n", msg);	
 		if(strstr(msg, "get") != NULL)
@@ -155,16 +160,33 @@ int main (int argc, char * argv[] )
 			printf("Server stops\n");
 			break;
 		}
+		else 
+		{
+			nbytes = sendto(sockfd, msg, (sizeof(msg) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			strcpy(msg, "Given command was not understood by server");
+			printf("Given command was not understood by server\n");
+			nbytes = sendto(sockfd, msg, (sizeof(msg) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));			
+		}
 	}
 	close(sockfd);
 }
 
+/**
+* @brief Sends file to client
+*
+* Given a file name, this function sends the file to the client
+*
+* @param *file_name     File name pointer
+*		 sockfd			Socket ID
+*        remote         Socket parameters
+*
+* @return void 
+*/
 void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 {
 	char msg[100];
 	int index_req, errsv, count, sent_index;
 	long num_pkts, num_bytes;
-	printf("Entering get function\n");
 	remote_length = sizeof(remote);
 	nbytes = recvfrom(sockfd, msg, sizeof(msg), 0, (struct sockaddr *)&remote, &remote_length);
 	if(strstr(msg, "Client Ready"))
@@ -204,6 +226,7 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 		timeout.tv_usec = 500000;		//500ms timeout
 		setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 
+		// Loop till entire file is transmitted
 		while(file_size > 0)
 		{
 			loop_count = 0;
@@ -211,12 +234,11 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			pkt->index++;
 			sent_index = pkt->index;
 
-			//64-bit encryption
+			//64-bit encryption. XOR every byte
 			while(loop_count<pkt_size)
 			{
 				pkt->buffer[loop_count] ^= key[loop_count % (key_len-1)];
 				++loop_count;
-				// flag=1;
 			}
 
 			num_bytes = fread(pkt->buffer, 1, (int)MAXBUFSIZE, fp);
@@ -226,6 +248,8 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			printf("Sent index is %d\n", pkt->index);
 			memset(pkt_ack, 0, pkt_size);
 			nbytes = recvfrom(sockfd, pkt_ack, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
+            
+            //Loop till recvfrom error OR received packet != expected packet conditions are resolved
 			while(nbytes < 0 || pkt_ack->index !=sent_index)
 			{
 				errsv = errno;
@@ -238,30 +262,13 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 		
 			}
 
-			// if(pkt_ack->index == sent_index)
-			// {
-				printf("ACK received\n");
-				file_size = file_size - num_bytes;
-				count++;
-			// }
-
-			// else if (strcmp(pkt_ack->buffer, "Incorrect index. Send again"))
-			// {
-			// 	nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			// }
-
-			// else
-			// {
-			// 	printf("ACK not received\n");
-			// 	nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			// }
+			//Loop exits if correct ACK is received
+			printf("ACK received\n");
+			file_size = file_size - num_bytes;
+			count++;
 		}
-		printf("Out of loop\n");
+		
 		// fclose(fp);
-		// if(fclose(fp) != 0)
-		// {
-		// 	printf("Error: %d\n", errno);
-		// }
 		timeout.tv_sec = 0;
 		timeout.tv_usec = 0;
 		setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
@@ -269,14 +276,23 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 	printf("Number of ACKs is %d\n", count);
 }
 
-
+/**
+* @brief Receives file from server
+*
+* Given a file name, this function receives the file from the client
+*
+* @param *file_name     File name pointer
+*        sockfd         Socket ID
+*        remote         Socket parameters
+*
+* @return void 
+*/
 void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 {
 	char msg[100];
 	int index_req, old_index;
 	remote_length = sizeof(remote);
 	memset(msg,0, sizeof(msg));
-	// nbytes = recvfrom(sockfd, msg, (int)MAXBUFSIZE, 0, (struct sockaddr *)&remote, &remote_length);
 	nbytes = recvfrom(sockfd, msg, sizeof(msg), 0, (struct sockaddr *)&remote, &remote_length);
 	printf("put function at server receives: %s\n", msg);
 
@@ -304,26 +320,25 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 
 
 	//Setting the timeout using setsockopt()
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 500000;  //500ms timeout
-	setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+	// timeout.tv_sec = 0;
+	// timeout.tv_usec = 500000;  //500ms timeout
+	// setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+
+	//Loop till entire file has been received
 	while(file_size > 0)
 	{
 		loop_count = 0;
-
-		// printf("Entering recvfrom...\n");
 		nbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
 		if(pkt->index == index_req)
 		{
 			printf("Correct data received\n");
 			printf("Received index is %d\n", pkt->index);
 
-			//64-bit encryption
+			//64-bit decryption. double XOR every byte in packet to recover original data
 			while(loop_count<pkt_size)
 			{
 				pkt->buffer[loop_count] ^= key[loop_count % (key_len-1)] ^ key[loop_count % (key_len-1)];
 				++loop_count;
-				// flag=1;
 			}
 
 			fwrite(pkt->buffer, 1, pkt->data_length, fp);
@@ -332,9 +347,10 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			memset(pkt, 0, pkt_size);
 			pkt->index = index_req;
 			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			// printf("Exiting sendto function...\n");
 			index_req++;
 		}
+
+		//If old packet has been received, send ACK of old packet
 		else if (pkt->index < index_req)
 		{
 			printf("Old pkt received\n");
@@ -344,6 +360,8 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			pkt->index = old_index;
 			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 		}
+		
+		//Else, index=0. This makes sender loop till it receives correct ACK
 		else
 		{
 			printf("Incorrect data received. Send data again\n");
@@ -363,12 +381,22 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 	printf("Client to Server file transfer complete\n");
 }
 
-
+/**
+* @brief Lists current directory contents of server
+*
+* Given the socket parameters, this function displays the server directory
+* contents
+*
+* @param *file_name     File name pointer
+*        sockfd         Socket ID
+*        remote         Socket parameters
+*
+* @return void 
+*/
 void list_directory(int sockfd, struct sockaddr_in remote)
 {
 	printf("Entering ls function\n");
 	FILE *fp_ls;
-	// strcpy(file_name, "ls_dir");
 	fp_ls = fopen("ls_dir", "w+");
 	if(fp_ls == NULL)
 	{
@@ -380,9 +408,20 @@ void list_directory(int sockfd, struct sockaddr_in remote)
 
 	system("ls -la> ls_dir");
 	
+	//Sending the directory list as a file to the client
 	get_file("ls_dir", sockfd, remote);
 }
 
+
+/**
+* @brief Deletes file on server
+*
+* This function deletes the requested file on the server. 
+*
+* @param *file_name     File name pointer
+* 
+* @return void 
+*/
 void delete(char *file_name)
 {
 	if (remove(file_name) == 0)
