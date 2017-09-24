@@ -35,7 +35,6 @@ struct timeval timeout;
 char file_name[10];
 int pkt_size, key_len; 
 char key[] = "123456789098765432123456789098765432123456789098765432123456789";
-char msg[100];
 int pkt_size;
 int file_size;
 struct sockaddr_in remote;      //"Internet socket address structure"
@@ -59,6 +58,8 @@ int main (int argc, char * argv[] )
 	// void *buffer;             //a buffer to store our received message
 	// PACKET *pkt = NULL;
 	// FILE *fp;
+	char msg[100];
+
 	if (argc != 2)
 	{
 		printf ("USAGE:  <port>\n");
@@ -160,6 +161,7 @@ int main (int argc, char * argv[] )
 
 void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 {
+	char msg[100];
 	int index_req, errsv, count, sent_index;
 	long num_pkts, num_bytes;
 	printf("Entering get function\n");
@@ -224,7 +226,7 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			printf("Sent index is %d\n", pkt->index);
 			memset(pkt_ack, 0, pkt_size);
 			nbytes = recvfrom(sockfd, pkt_ack, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
-			while(nbytes < 0)
+			while(nbytes < 0 || pkt_ack->index !=sent_index)
 			{
 				errsv = errno;
 				memset(pkt_ack, 0, pkt_size);
@@ -236,23 +238,23 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 		
 			}
 
-			if(pkt_ack->index == sent_index)
-			{
+			// if(pkt_ack->index == sent_index)
+			// {
 				printf("ACK received\n");
 				file_size = file_size - num_bytes;
 				count++;
-			}
+			// }
 
-			else if (strcmp(pkt_ack->buffer, "Incorrect index. Send again"))
-			{
-				nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			}
+			// else if (strcmp(pkt_ack->buffer, "Incorrect index. Send again"))
+			// {
+			// 	nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			// }
 
-			else
-			{
-				printf("ACK not received\n");
-				nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-			}
+			// else
+			// {
+			// 	printf("ACK not received\n");
+			// 	nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+			// }
 		}
 		printf("Out of loop\n");
 		// fclose(fp);
@@ -270,7 +272,8 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote)
 
 void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 {
-	int index_req;
+	char msg[100];
+	int index_req, old_index;
 	remote_length = sizeof(remote);
 	memset(msg,0, sizeof(msg));
 	// nbytes = recvfrom(sockfd, msg, (int)MAXBUFSIZE, 0, (struct sockaddr *)&remote, &remote_length);
@@ -332,19 +335,30 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote)
 			// printf("Exiting sendto function...\n");
 			index_req++;
 		}
+		else if (pkt->index < index_req)
+		{
+			printf("Old pkt received\n");
+			printf("Received index: %d\n", pkt->index);
+			old_index = pkt->index;
+			memset(pkt, 0, pkt_size);
+			pkt->index = old_index;
+			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
+		}
 		else
 		{
 			printf("Incorrect data received. Send data again\n");
-			strcpy(pkt->buffer, "Incorrect index. Send again");
+			// strcpy(pkt->buffer, "Incorrect index. Send again");
+			printf("Received index: %d\n", pkt->index);
+			memset(pkt, 0, pkt_size);
+			pkt->index = 0;
 			nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
 			// printf("Incorrect Received index is %d\n", pkt->index);
-			// break;
 		}
 		memset(pkt, 0, pkt_size);
 	}
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
-	setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+	// timeout.tv_sec = 0;
+	// timeout.tv_usec = 0;
+	// setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	fclose(fp);
 	printf("Client to Server file transfer complete\n");
 }
