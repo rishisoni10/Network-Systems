@@ -126,7 +126,7 @@ int main (int argc, char * argv[])
 
 		if(strstr(command, "Sending file"))
 		{
-			strcpy(file_name, (command + 13));
+			strcpy(file_name, (command + 12));
 			get_file(file_name, sockfd, remote, from_addr);
 		}
 
@@ -158,7 +158,7 @@ int main (int argc, char * argv[])
 void get_file(char *file_name, int sockfd, struct sockaddr_in remote, struct sockaddr_in from_addr)
 {
 	int index_req;
-	long file_size;
+	int file_size;
 	socklen_t addr_length = sizeof(struct sockaddr);
 	strcpy(command, "Client Ready");
 	sbytes = sendto(sockfd, command, (sizeof(command) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
