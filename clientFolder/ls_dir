@@ -1,8 +1,0 @@
-total 29529
-drwxrwxrwx 1 rishisoni1003 rishisoni1003      448 Sep 23 18:19 .
-drwxrwxrwx 1 rishisoni1003 rishisoni1003     4096 Sep 23 18:12 ..
--rwxrwxrwx 1 rishisoni1003 rishisoni1003 30199804 Sep 23 18:18 book
--rwxrwxrwx 1 rishisoni1003 rishisoni1003        0 Sep 23 18:19 ls_dir
--rwxrwxrwx 1 rishisoni1003 rishisoni1003       62 Sep 23 18:11 Makefile
--rwxrwxrwx 1 rishisoni1003 rishisoni1003    18680 Sep 23 18:18 server
--rwxrwxrwx 1 rishisoni1003 rishisoni1003    10640 Sep 23 18:11 server.c

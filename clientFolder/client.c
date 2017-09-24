@@ -32,10 +32,12 @@ typedef struct
 }PACKET;
 
 
-int sent_index, count, error, pkt_size;
+int sent_index, count, error, pkt_size, key_len;
 long num_bytes, num_pkts;
 char command[100];
 // char data[512];
+char key[] = "123456789098765432123456789098765432123456789098765432123456789";
+
 int len;
 int errsv;								//Store errno
 int sbytes = -1;                        //number of bytes send by sendto()
@@ -95,6 +97,7 @@ int main (int argc, char * argv[])
 	memset(command, 0, sizeof(command));
 	pkt_size = sizeof(pkt->buffer) + sizeof(pkt->index) + sizeof(pkt->data_length);
 	printf("Size of each packet is %ld\n", pkt_size);
+	key_len = strlen(key);
 
 	while(1)
 	{
@@ -174,15 +177,27 @@ void get_file(char *file_name, int sockfd, struct sockaddr_in remote, struct soc
 	fp = fopen(file_name, "w");
 
 	index_req = 1;
+	int loop_count = 0;
+
 
 	/*Need to set timeout*/
 	while(file_size > 0)
 	{
+		loop_count = 0;
+
 		rbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&from_addr, &addr_length);  
 		if(pkt->index == index_req)
 		{
 			printf("Correct data received\n");
 			printf("Received index is %d\n", pkt->index);
+
+			//64-bit encryption
+			while(loop_count<pkt_size)
+			{
+				pkt->buffer[loop_count] ^= key[loop_count % (key_len-1)] ^ key[loop_count % (key_len-1)];
+				++loop_count;
+				// flag=1;
+			}
 			fwrite(pkt->buffer, 1, pkt->data_length, fp);
 			file_size = file_size - pkt->data_length;
 			printf("Current file size is %ld\n", file_size);
@@ -255,15 +270,24 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote, struct soc
 		
 		pkt->index = 0;
 		count = 0;
-
+		int loop_count = 0;
 		//Setting the timeout using setsockopt()
 		timeout.tv_sec = 0;
 		timeout.tv_usec = 500000;  //500ms timeout
 		setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 		while(len > 0)
 		{
+			loop_count = 0;
 			pkt->index++;
 			sent_index = pkt->index;
+
+			//64-bit encryption
+			while(loop_count<pkt_size)
+			{
+				pkt->buffer[loop_count] ^= key[loop_count % (key_len-1)];
+				++loop_count;
+				// flag=1;
+			}
 
 			num_bytes = fread(pkt->buffer, 1, (int)MAXBUFSIZE, fp);
 			pkt->data_length = num_bytes;
@@ -302,7 +326,7 @@ void put_file(char *file_name, int sockfd, struct sockaddr_in remote, struct soc
 			}
 			// len = len - num_bytes;
 		}
-		fclose(fp);
+		// fclose(fp);
 	}
 	printf("Number of ACKs is %d\n", count);
 }
