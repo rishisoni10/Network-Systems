@@ -410,6 +410,9 @@ void list_directory(int sockfd, struct sockaddr_in remote)
 	
 	//Sending the directory list as a file to the client
 	get_file("ls_dir", sockfd, remote);
+
+	//Deleting the ls text file
+	delete("ls_dir");
 }
 
 
