@@ -128,9 +128,9 @@ char* http_file_format(char *hint_string, char *search_string)
 
 void server_response(int n, char* ROOT)
 {
-	char buffer[99999], *reqline[3], packet[BUFSIZE], path[99999], hdr[1000], msg[99999];
+	char buffer[99999], *reqline[3], packet[BUFSIZE], path[99999], hdr[1000], msg[99999], post_msg[10000];
 	char size[10];
-	int ret, data_bytes_read;
+	int ret, len;
 	FILE *res_fp;
 	char *def_page = malloc(20);
 	char *file_name = malloc(100);
@@ -154,6 +154,10 @@ void server_response(int n, char* ROOT)
 	{
 		printf("%s", buffer);
 		strcpy(msg, buffer);
+		strcpy(post_msg, buffer);
+
+		// strcpy(POST_msg, buffer);
+		// strcpy(always_connect, buffer);
 		reqline[0] = strtok(buffer, " \t\n");
 		printf("reqline0: %s\n", reqline[0]);
 		if(!strncmp(reqline[0], "GET\0", 4))
@@ -173,12 +177,17 @@ void server_response(int n, char* ROOT)
                http = "HTTP/1.1 ";
                printf("Selected http is %s\n", http);
             }
+
+            //If no HTTP supoorted version is specified
             if(!strncmp(reqline[2], "HTTP/1.0", 8) && !strncmp(reqline[2], "HTTP/1.1", 8))
             {
-            	// printf("Unknown request\n");
-            	// strcpy(hdr, http);
-            	// strcat(hdr, "400 Not Found\n");
-            	// strcat(hdr, "Content-Length")
+            	strcpy(hdr,http);
+				strcat(hdr,"400 Not Found\nContent-Size :NONE\nContent-Type : Invalid\n\n");
+				send(multi_clients[n], hdr, strlen(hdr), 0);
+				strcpy(error_msg,"<HEAD><TITLE>400 Bad Request Reason</TITLE></HEAD>\n<html><BODY>>400 Bad Request Reason: Invalid HTTP-Version:");
+				strcat(error_msg,reqline[2]);
+				strcat(error_msg,"\n</BODY></html>");
+				send(multi_clients[n], error_msg, strlen(error_msg), 0);
             }
             else
             {
@@ -216,7 +225,7 @@ void server_response(int n, char* ROOT)
             		printf("File FOUND!\n");
             		strcpy(hdr, http);
             		strcat(hdr, "200 OK\n");
-            		int len = file_size(res_fp);
+            		len = file_size(res_fp);
             		snprintf(size, sizeof(size), "%d", len); //Convert interger to string
             		printf("Size in string is%s\n", size);
             		strcat(hdr, "Content-Size :");
@@ -226,25 +235,80 @@ void server_response(int n, char* ROOT)
             		strcat(hdr, content_type);
             		strcat(hdr, "\n\n");
             		http_server_send(multi_clients[n], hdr, res_fp);
+            		fclose(res_fp);
             	}
+            	
             	else
 				{
 					printf("File NOT FOUND! :(\n");
 					strcpy(hdr, http);
 					strcat(hdr, "404 Not Found\n");
-					strcat(hdr, "Content-Size : NONE\n");
-					strcat(hdr, "Content-Type : Invalid\n\n");
+					strcat(hdr, "Content-Size : NONE\nContent-Type : Invalid\n\n");
+					// strcat(hdr, "Content-Type : Invalid\n\n");
 					send(multi_clients[n], hdr, strlen(hdr), 0);
-					// strcpy(error_msg,"<HEAD><TITLE>404 File not found Reason</TITLE></HEAD>\n<html><BODY>400 File not found Request URL doesn't exist:");
-					// strcat(error_msg,path);
-					// strcat(error_msg,"\n");
-					// strcat(error_msg,"</BODY></html>");
-					// send(multi_clients[n], error_msg, strlen(error_msg), 0);
+					strcpy(error_msg,"<HEAD><TITLE>404 File not found Reason</TITLE></HEAD>\n<html><BODY>400 File not found Request URL doesn't exist:");
+					strcat(error_msg,path);
+					strcat(error_msg,"\n");
+					strcat(error_msg,"</BODY></html>");
+					send(multi_clients[n], error_msg, strlen(error_msg), 0);
             	}
             }
 
 		}
+		else if(!strncmp(reqline[0], "POST\0", 4))
+		{
+			printf("Post request\n");
+			// char *client_msg = strstr(post_msg, "fname=");
+			reqline[1] = strtok(NULL," \t");
+			strcpy(file_name, reqline[1]);
+        	printf("File name is %s\n", file_name);
+        	strncpy(path, ROOT, strlen(ROOT));
+        	strcat(path, file_name+1);
+        	printf("Path: %s\n", path);
+        	strcpy(file_type, path);
+        	token = strtok(file_type, ".\0 ");
+        	token = strtok(NULL, ".\0");
+        	printf("file type is %s\n", token);
+
+        	file_type = strcat(delimiter, token);
+        	printf("Final file format is:%s\n", file_type);
+        	content_type = http_file_format("#Content-Type which the server handles", file_type);
+        	printf("content_type is %s\n", content_type);
+
+        	res_fp = fopen(path, "r");
+        	if(res_fp != NULL)
+        	{
+        		printf("File FOUND!\n");
+        		strcpy(hdr, http);
+        		strcat(hdr, "200 OK\n");
+        		len = file_size(res_fp);
+        		snprintf(size, sizeof(size), "%d", len); //Convert interger to string
+        		printf("Size in string is%s\n", size);
+        		strcat(hdr, "Content-Size :");
+        		strcat(hdr, size);
+        		strcat(hdr, "\n");
+        		strcat(hdr, "Content-Type : ");
+        		strcat(hdr, content_type);
+        		strcat(hdr, "\n\n");
+	    		strcat(hdr, "<html><body><pre><h1>POSTDATA </h1></pre>");
+        		http_server_send(multi_clients[n], hdr, res_fp);
+        		fclose(res_fp);
+            }
+
+		}
+		//If neither of the two methods supported is detected, then send error message
+		 else if ( (strncmp(reqline[0], "POST\0", 4)!=0 ) && (strncmp(reqline[0],"GET\0",4)!=0) )
+        {
+			strcpy(hdr,http);
+			strcat(hdr,"501 Not Implemented\nContent-Size :NONE\nContent-Type : Invalid\n\n");
+			send(multi_clients[n], hdr, strlen(hdr), 0);
+			strcpy(error_msg,"<HEAD><TITLE>501 Not Implemented Reason</TITLE></HEAD>\n<html><BODY>>501 Not Implemented");
+			strcat(error_msg,reqline[0]);
+			strcat(error_msg,"\n</BODY></html>");
+			send(multi_clients[n], error_msg, strlen(error_msg), 0);
+        }
 	}
+
 
 }
 
