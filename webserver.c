@@ -138,7 +138,8 @@ void server_response(int n, char* ROOT)
 	char *token = malloc(30);
 	char *file_type = malloc(40);
 	char *content_type = malloc(50);
-	char *http;
+	char *tmp_ptr = malloc(50);
+	char *http = "HTTP/1.1 ";
 	char delimiter[] = ".";
 	char *time_out_str = NULL;
 
@@ -193,7 +194,7 @@ void server_response(int n, char* ROOT)
             	{
             		printf("loading default page\n");
             		strcpy(def_page, "/");
-            		char *tmp_ptr = config_file("DirectoryIndex");
+            		tmp_ptr = config_file("DirectoryIndex");
             		//printf("Copied file is %s\n", tmp_ptr);
             		*(tmp_ptr + 10) = '\0';
             		strcat(def_page,tmp_ptr);
