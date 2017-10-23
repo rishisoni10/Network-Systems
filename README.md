@@ -7,8 +7,9 @@ This is the Readme file for the Network Systems' **Programming Assignment - 2**.
 
 HTTP is the abbreviation of "HyperText Transfer Protocol". This HTTP Server is the implementation of that protocol. The protocol specifies how the information must be requested and how the responses are formed, so we have two important actors here: the HTTP Client (a web Browser) and the HTTP Server. The HTTP Server "serves" content located in the server, which includes HTML, images, flash and any file related. The server is not restricted to server static content, it also serves dynamic content generated on fly from a database or similar. The HTTP server in this assignment leverages the use of the TCP/IP network protocol. This assignment uses the C programming language.
 
-To run this code, compile with the following command: __***make***__
-To run the code, type in the following in the terminal __***make***__ __***run***__
+Compile the code with the following command: __***make***__
+
+Run the code with the following command: __***make***__ __***run***__
 
 __**Functionality:**__
 
