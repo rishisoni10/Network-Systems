@@ -1,3 +1,18 @@
+/*
+* @file webserver.c
+* @brief HTTP webserver source file
+*
+* This source file creates an HTTP server, which responds to GET and POST HTTP commands
+*
+* Tools used: GCC Compiler, GDB
+* Command to compile from source: make all
+* Command to run: make run
+*
+* @author Rishi Soni
+* @date October 22 2017
+* @version 1.0
+*
+*/
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,11 +90,8 @@ void http_server_send(int sock_desc, char *server_msg, FILE *send_fp)
 	int len = strlen(server_msg);
 	if(send(sock_desc, server_msg, len, 0) == -1)
 		printf("Send failed\n");
-	
-	// int file_len = file_size(send_fp);
-	// data_buffer = malloc(file_len + 1);
 
-	// fread(data_buffer, 1, file_len, send_fp);
+	//Sending data byte by byte
 	while((data_bytes = fread(data_buffer, 1, (int)BUFSIZE, send_fp))>0)
 		send(sock_desc, data_buffer, (int)BUFSIZE, 0);
 }
