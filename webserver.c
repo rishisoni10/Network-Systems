@@ -26,6 +26,15 @@ int process_index;
 
 // int count = 0, file_len;
 // size_t len;
+void timeout_handler(int signum)
+{
+     printf("Socket Timed out\n");
+     printf("closing the socket %d\n",process_index); 
+     shutdown (multi_clients[process_index], SHUT_RDWR);         
+     close(multi_clients[process_index]);
+     multi_clients[process_index]=-1;
+     exit(0);    
+}
 
 void signal_handler(int signum)
 {
@@ -139,17 +148,19 @@ void server_response(int n, char* ROOT)
 	char *file_type = malloc(25);
 	char *content_type = malloc(50);
 	char *error_msg = malloc(5000);
-	char *http = "HTTP/1.1 ";
+	char *http;
+	char *always_connect = malloc(99999);
 	char delimiter[] = ".";
+	char *time_out = NULL;
 
 	memset(&buffer, 0, 99999);
 
 	ret = recv(multi_clients[n], buffer, 99999, 0);
-	if(ret == 0 || ret < 0)
+	if(ret < 0)
 	{
-		perror("browser request read failed");
-		exit(1);
+		printf("recv() error\n");
 	}
+
 	else
 	{
 		printf("%s", buffer);
@@ -157,7 +168,7 @@ void server_response(int n, char* ROOT)
 		strcpy(post_msg, buffer);
 
 		// strcpy(POST_msg, buffer);
-		// strcpy(always_connect, buffer);
+		strcpy(always_connect, buffer);
 		reqline[0] = strtok(buffer, " \t\n");
 		printf("reqline0: %s\n", reqline[0]);
 		if(!strncmp(reqline[0], "GET\0", 4))
@@ -178,16 +189,20 @@ void server_response(int n, char* ROOT)
                printf("Selected http is %s\n", http);
             }
 
-            //If no HTTP supoorted version is specified
-            if(!strncmp(reqline[2], "HTTP/1.0", 8) && !strncmp(reqline[2], "HTTP/1.1", 8))
+            //400 error: unsupported HTTP version is specified, 
+            if(strncmp(reqline[2], "HTTP/1.0", 8) && strncmp(reqline[2], "HTTP/1.1", 8))
             {
-            	strcpy(hdr,http);
-				strcat(hdr,"400 Not Found\nContent-Size :NONE\nContent-Type : Invalid\n\n");
+            	printf("Client requests unsupported HTTP version\n");
+            	// strcpy(hdr,http);
+				sprintf(hdr,"HTTP/1.1 400 Bad Request\r\nContent-Type: text/html;\r\n\r\n<!DOCTYPE html>\r\n \
+  					<html><head><title>Bad Request!</title></head>\r\n<body> \
+  					<p><b>400: Bad Request. Reason - Invalid HTTP-version</b></p>\r\n \
+  					</body></html>\r\n");
 				send(multi_clients[n], hdr, strlen(hdr), 0);
-				strcpy(error_msg,"<HEAD><TITLE>400 Bad Request Reason</TITLE></HEAD>\n<html><BODY>>400 Bad Request Reason: Invalid HTTP-Version:");
-				strcat(error_msg,reqline[2]);
-				strcat(error_msg,"\n</BODY></html>");
-				send(multi_clients[n], error_msg, strlen(error_msg), 0);
+				// strcpy(error_msg,"<HEAD><TITLE>400 Bad Request Reason</TITLE></HEAD>\n<html><BODY>>400 Bad Request Reason: Invalid HTTP-Version:");
+				// strcat(error_msg,reqline[2]);
+				// strcat(error_msg,"\n</BODY></html>");
+				// send(multi_clients[n], error_msg, strlen(error_msg), 0);
             }
             else
             {
@@ -244,9 +259,8 @@ void server_response(int n, char* ROOT)
 					strcpy(hdr, http);
 					strcat(hdr, "404 Not Found\n");
 					strcat(hdr, "Content-Size : NONE\nContent-Type : Invalid\n\n");
-					// strcat(hdr, "Content-Type : Invalid\n\n");
 					send(multi_clients[n], hdr, strlen(hdr), 0);
-					strcpy(error_msg,"<HEAD><TITLE>404 File not found Reason</TITLE></HEAD>\n<html><BODY>400 File not found Request URL doesn't exist:");
+					strcpy(error_msg,"<HEAD><TITLE>404 File not found Reason</TITLE></HEAD>\n<html><BODY>404 File not found Request URL doesn't exist:");
 					strcat(error_msg,path);
 					strcat(error_msg,"\n");
 					strcat(error_msg,"</BODY></html>");
@@ -297,15 +311,46 @@ void server_response(int n, char* ROOT)
 
 		}
 		//If neither of the two methods supported is detected, then send error message
-		 else if ( (strncmp(reqline[0], "POST\0", 4)!=0 ) && (strncmp(reqline[0],"GET\0",4)!=0) )
+		 else if (strcmp(reqline[0], "POST") && strcmp(reqline[0],"GET"))
         {
-			strcpy(hdr,http);
-			strcat(hdr,"501 Not Implemented\nContent-Size :NONE\nContent-Type : Invalid\n\n");
+        	printf("Requested method %s not implemented\n", reqline[0]);
+			memset(hdr, 0, sizeof(hdr));
+			strcat(hdr, reqline[0]);
+			strcat(hdr, " 501 Not Implemented\r\nContent-Type: text/html;\r\n\r\n<!DOCTYPE html>\r\n \
+  					<html><head><title>Not Implemented method</title></head>\r\n<body> \
+  					<p><b>501: Not Implemented method on server</b></p>\r\n \
+  					</body></html>\r\n");
 			send(multi_clients[n], hdr, strlen(hdr), 0);
-			strcpy(error_msg,"<HEAD><TITLE>501 Not Implemented Reason</TITLE></HEAD>\n<html><BODY>>501 Not Implemented");
-			strcat(error_msg,reqline[0]);
-			strcat(error_msg,"\n</BODY></html>");
-			send(multi_clients[n], error_msg, strlen(error_msg), 0);
+        }
+        // 500 error: Cannot allocate memory
+        else
+        {
+        	memset(hdr, 0, sizeof(hdr));
+			strcpy(hdr, "500 Internal Server Error\r\nContent-Type: text/html;\r\n\r\n<!DOCTYPE html>\r\n \
+			<html><head><title>Aww, snap!</title></head>\r\n<body> \
+			<p><b>500: Internal Server Error - Cannot allocate memory</b></p>\r\n \
+			</body></html>\r\n");
+			//shutdown(sock_connect, 1);
+			send(multi_clients[n], hdr, strlen(hdr), 0);
+			exit(1);
+        }
+
+        //timeouts
+         if(strstr(always_connect,"keep-alive")!= NULL)
+        {
+        	printf("keep alive is der\n");
+        	time_out = config_file("Keep-Alivetime");
+        	printf("time_out interval is %d\n",atoi(time_out));
+        	printf("timer started\n");
+        	alarm(atoi(time_out));
+        }
+        else
+        {
+      	  //Closing SOCKET
+    		shutdown (clients[n], SHUT_RDWR);         
+    		close(clients[n]);
+        	clients[n]=-1;
+        	exit(0);
         }
 	}
 
@@ -331,6 +376,8 @@ int main(int argc, char const *argv[])
 	
 	int server_port = atoi(PORT);
 	printf("Port number is %d\n", server_port);
+
+    signal(SIGALRM, timeout_handler);
 
 	//Create socket
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
