@@ -64,87 +64,111 @@ char* config_file(char *string)
 
 int main(int argc, char const *argv[])
 {
-  int welcomeSocket, newSocket;
-  char buffer[1024];
-  struct sockaddr_in serverAddr;
-  struct sockaddr_storage serverStorage;
-  socklen_t addr_size;
-  int port;
-  char* recv_username = malloc(100);
-  char* recv_password = malloc(100);
-  char* req_username = malloc(100);
-  char* req_password = malloc(100);
-  char* token = malloc(100);
+    int welcomeSocket, newSocket;
+    char buffer[1024];
+    struct sockaddr_in serverAddr;
+    struct sockaddr_storage serverStorage;
+    socklen_t addr_size;
+    int port;
+    char* recv_username = malloc(100);
+    char* recv_password = malloc(100);
+    char* req_username = malloc(100);
+    char* req_password = malloc(100);
+    char* cpy_1 = malloc(100);
+    char* cpy_2 = malloc(100);
+    char* token = malloc(100);
+    char* file_contents = NULL;
+    FILE *fp = NULL;
+
+    /*---- Create the socket. The three arguments are: ----*/
+    welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
+    if(argc < 2)
+    {
+    	printf("Enter port number of server\n");
+    	exit(1);
+    }
+
+    printf("Value of port is %s\n", argv[1]);
+    port = atoi(argv[1]);
+    printf("Port:%d\n",port);
 
 
-  /*---- Create the socket. The three arguments are: ----*/
-  welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
-  if(argc < 2)
-  {
-  	printf("Enter port number of server\n");
-  	exit(1);
-  }
+    /*---- Configure settings of the server address struct ----*/
+    serverAddr.sin_family = AF_INET;
+    /* Set port number, using htons function to use proper byte order */
+    serverAddr.sin_port = htons(port);
+    /* Set IP address to localhost */
+    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    /* Set all bits of the padding field to 0 */
+    memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
 
-  printf("Value of port is %s\n", argv[1]);
-  port = atoi(argv[1]);
-  printf("Port:%d\n",port);
+    /*---- Bind the address struct to the socket ----*/
+    bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
-  
-  /*---- Configure settings of the server address struct ----*/
-  serverAddr.sin_family = AF_INET;
-  /* Set port number, using htons function to use proper byte order */
-  serverAddr.sin_port = htons(port);
-  /* Set IP address to localhost */
-  serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  /* Set all bits of the padding field to 0 */
-  memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+    /*---- Listen on the socket, with 5 max connection requests queued ----*/
+    while(1)
+    {
+        if(listen(welcomeSocket,4)==0)
+        printf("Listening\n");
+        else
+        printf("Error\n");
 
-  /*---- Bind the address struct to the socket ----*/
-  bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
+        /*---- Accept call creates a new socket for the incoming connection ----*/
+        addr_size = sizeof(serverStorage);
+        newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
 
-  /*---- Listen on the socket, with 5 max connection requests queued ----*/
-  while(1)
-  {
-	  if(listen(welcomeSocket,4)==0)
-	    printf("Listening\n");
-	  else
-	    printf("Error\n");
+        /*---- Receive message from the socket of the incoming connection ----*/
 
-	  /*---- Accept call creates a new socket for the incoming connection ----*/
-	  addr_size = sizeof(serverStorage);
-	  newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+        recv(newSocket,buffer,1024,0);
 
-	  /*---- Receive message from the socket of the incoming connection ----*/
-	  
-	  recv(newSocket,buffer,1024,0);
+        printf("Received info is %s\n", buffer);
+        recv_username = strtok(buffer,",");
+        recv_password = strtok(NULL,",");
+        printf("Received user name:%s\n", recv_username);
+        printf("Received Password:%s\n", recv_password);
 
-	  printf("Received info is %s\n", buffer);
-      recv_username = strtok(buffer,",");
-      recv_password = strtok(NULL,",");
-      printf("Received user name:%s\n", recv_username);
-      printf("Received Password:%s\n", recv_password);
-	 
-      req_username = config_file(recv_username);
-      printf("Username token:%s\n", req_username);
-     
-      req_password = config_file(recv_password);
-      printf("Password token:%s\n", req_password);
+        fp = fopen("dfs.conf", "r");
+        file_contents = malloc(file_size(fp));
+        fread(file_contents, 1, file_size(fp), fp);
+        printf("file contents:%s\n", file_contents);
 
+        if((cpy_1 = strstr(file_contents, recv_username)) != NULL)
+        {
+            req_username = strtok(cpy_1, " ,\n");
+            // req_username = strtok(NULL, ",");
 
-      // printf("\n\n");
-      if(req_password == NULL || req_username == NULL)
-      {
-        printf("Wrong credentials. Try Again\n");
-      }
-      else if(!strcmp(recv_username, req_username) && !strcmp(recv_password, req_password))
-        printf("Client credentials verified\n");
-      else
-        printf("Problem hain\n");
+            if(strcmp(req_username, recv_username) == 0)
+                printf("Username checks out:%s\n", req_username);
+            else
+                printf("Error in username:%s\n", req_username);
+        }
+        else
+            printf("Username not found:%s\n", req_username);
 
+        if((cpy_2 = strstr(file_contents, recv_password)) != NULL)
+        {
+            req_password = strtok(cpy_2, ",");
+            // req_password = strtok(NULL, ",\n");
+            if(strcmp(req_password, recv_password) == 0)
+                printf("Password checks out:%s\n", req_password);
+            else
+                printf("Error in Password:%s\n", req_password);
+        }
+        else
+            printf("Password not found:%s\n", req_password);
 
 
-	  // memset(buffer, 0, sizeof(buffer));
-	}
+        if(req_password == NULL || req_username == NULL)
+        {
+            printf("Wrong credentials. Try Again\n");   // username/password not found in dfs.conf
+        }
+        else if(!strcmp(recv_username, req_username) && !strcmp(recv_password, req_password))
+            printf("Client credentials verified\n");
+        else
+            printf("Wrong credentials. Try Again....\n");
 
-  return 0;
+        // memset(buffer, 0, sizeof(buffer));
+    }
+
+    return 0;
 }
