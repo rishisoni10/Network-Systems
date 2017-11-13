@@ -592,8 +592,9 @@ int main(int argc, char const *argv[])
         printf("Sending entered command to server\n");
         sending = send(clientSocket[0],command,1024,0);
         sending = send(clientSocket[1],command,1024,0);
-        sending = send(clientSocket[2],command,1024,0);
         sending = send(clientSocket[3],command,1024,0);
+        sending = send(clientSocket[2],command,1024,0);
+
         if(sending < 0)
         {
             perror("Send Error");
@@ -603,8 +604,9 @@ int main(int argc, char const *argv[])
         
         receiving = recv(clientSocket[0], command_2, 1024, 0);
         receiving = recv(clientSocket[1], command_2, 1024, 0);
-        receiving = recv(clientSocket[2], command_2, 1024, 0);
         receiving = recv(clientSocket[3], command_2, 1024, 0);
+        receiving = recv(clientSocket[2], command_2, 1024, 0);
+
 
         if(receiving < 0)
         {

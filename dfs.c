@@ -36,7 +36,7 @@ int multi_clients[NUM_CLIENTS];
 int process_index;
 int byte_len_1, byte_len_2;
 int byte_len[4];
-int nbytes;                        //number of bytes we receive in our message
+int ret;                        
 char file_name[10];
 char buffer[1024];
 int welcomeSocket, newSocket;
@@ -199,7 +199,7 @@ void put_file(char *file_name, int sockfd)
             printf("Username folder already exists\n");
             printf("The folder path is:%s\n", folder);
         }
-        
+
         memset(file_part_1, 0, 1024);
         memset(file_part_2, 0, 1024);
         memset(&byte_len_1, 0, sizeof(byte_len_1));
@@ -348,12 +348,14 @@ int main(int argc, char const *argv[])
             close(welcomeSocket);   //child closes listening socket
             while(1)
             {
-                printf("Before recv\n");
+                printf("Before recv function\n");
                 // close(welcomeSocket);   //child closes listening socket
-                if(recv(newSocket,buffer,1024,0) < 0)
+                ret = recv(newSocket,buffer,1024,0);
+                if(ret == 0 || ret < 0)
                 {
                     perror("Recv Error");
                     exit(0);
+                    break;
                 }
                 printf("After recv\n");
                 if(strstr(buffer, "put") != NULL)
@@ -368,6 +370,7 @@ int main(int argc, char const *argv[])
                     {
                         perror("Send Error");
                         exit(0);
+                        break;
                     }
                     printf("after send\n");
 
@@ -394,9 +397,9 @@ int main(int argc, char const *argv[])
                     // exit(1);
                 }
                 // close(newSocket);
-                printf("Before child exit\n");
                 // exit(0);
             }
+            printf("After child exit\n");
         }
         // printf("after child exit\n");
         // close(tmpSocket[process_index]);
