@@ -1,4 +1,3 @@
-
 /*
 * @file dfs.c
 * @brief Distributed file system TCP/IP server source file
@@ -19,9 +18,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include <error.h>
+#include <errno.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -31,8 +31,42 @@
 #include <fcntl.h>
 #include <arpa/inet.h>  //inet_addr
 
+#define NUM_CLIENTS     (1000)
+int multi_clients[NUM_CLIENTS];
+int process_index;
+int byte_len_1, byte_len_2;
+int byte_len[4];
 int nbytes;                        //number of bytes we receive in our message
 char file_name[10];
+char buffer[1024];
+int welcomeSocket, newSocket;
+char* recv_username = NULL;
+char* recv_password = NULL;
+char* req_username = NULL;
+char* req_password = NULL;
+char* cpy_1 = NULL;
+char* cpy_2 = NULL;
+char* token = NULL;
+char* file_contents = NULL;
+char* folder = NULL;
+char* temp_buf = NULL;
+
+char* part1_name = NULL;
+char file_part_1[1024];
+int part1_name_len;
+
+char* part2_name = NULL;
+char file_part_2[1024];
+int part2_name_len;
+
+FILE *fp = NULL;
+char ACK = '0';
+
+char* buf = NULL;
+char* ptr = NULL;
+size_t size;
+
+int tmpSocket[NUM_CLIENTS];
 
 int file_size(FILE *file_fp)
 {
@@ -65,6 +99,72 @@ char* config_file(char *string)
     return tk;
 }
 
+
+int user_credentials_check(void)
+{
+    int flag = 0;
+    recv(newSocket,buffer,1024,0);
+
+/* ------User credentials check ----------*/
+    printf("Received info is %s\n", buffer);
+    recv_username = strtok(buffer,",");
+    recv_password = strtok(NULL,",");
+    printf("Received user name:%s\n", recv_username);
+    printf("Received Password:%s\n", recv_password);
+
+    fp = fopen("dfs.conf", "r");
+    file_contents = malloc(file_size(fp));
+    fread(file_contents, 1, file_size(fp), fp);
+    printf("file contents:%s\n", file_contents);
+
+    if((cpy_1 = strstr(file_contents, recv_username)) != NULL)
+    {
+        req_username = strtok(cpy_1, " ,\n");
+        if(strcmp(req_username, recv_username) == 0)
+            printf("Username checks out\n");
+        else
+            printf("Error in username\n");
+    }
+    else
+        printf("Username not found\n");
+
+    if((cpy_2 = strstr(file_contents, recv_password)) != NULL)
+    {
+        req_password = strtok(cpy_2, ",");
+        // req_password = strtok(NULL, ",\n");
+        if(strcmp(req_password, recv_password) == 0)
+            printf("Password checks out\n");
+        else
+            printf("Error in Password:\n");
+    }
+    else
+        printf("Password not found\n");
+
+    if(req_password == NULL || req_username == NULL)
+    {
+        flag = 0;
+        printf("Wrong credentials. Try Again\n");   // username/password not found in dfs.conf
+        return flag;
+    }
+    else if(!strcmp(recv_username, req_username) && !strcmp(recv_password, req_password))
+    {
+        printf("Client credentials verified\n");
+        ACK = '1';
+        flag = 1;
+        send(newSocket,&ACK,1,0);
+        // break; 
+        return flag;
+    }
+    else
+    {
+        printf("Invalid username/password. Try Again....\n");
+        ACK = '0';
+        flag = 0;
+        send(newSocket,&ACK,1,0);
+        return flag;
+    }
+}
+
 /**
 * @brief Receives file from server
 *
@@ -72,137 +172,146 @@ char* config_file(char *string)
 *
 * @param *file_name     File name pointer
 *        sockfd         Socket ID
-*        remote         Socket parameters
 *
 * @return void 
 */
-/*
+
 void put_file(char *file_name, int sockfd)
 {
-    char msg[100];
-    int index_req, old_index;
-    remote_length = sizeof(remote);
-    memset(msg,0, sizeof(msg));
-    nbytes = recvfrom(sockfd, msg, sizeof(msg), 0, (struct sockaddr *)&remote, &remote_length);
-    printf("put function at server receives: %s\n", msg);
+    int flag = user_credentials_check();
+    struct stat st = {0};
+    FILE* fp_part1 = NULL;
+    FILE* fp_part2 = NULL;
 
-    if(!strcmp(msg, "Sending file"))
+    if(flag == 1)
     {
-        printf("Client reply received\n");
-        memset(msg,0, sizeof(msg));
-        strcpy(msg, "Okay");
-        printf("Sending ACK: %s\n", msg);
-        nbytes = sendto(sockfd, msg, (sizeof(msg) - 1), 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-    }
+        // Username folder creation
+        strcat(folder, "/");
+        strcat(folder, req_username);
+        strcat(folder, "/");
 
-    memset(&file_size, 0, sizeof(file_size));
-    nbytes = recvfrom(sockfd, &file_size, sizeof(file_size), 0, (struct sockaddr *)&remote, &remote_length);
-    printf("The size of the file to be received is %ld\n", file_size);
-    
-    pkt_size = sizeof(pkt->buffer) + sizeof(pkt->index) + sizeof(pkt->data_length);
-    pkt = (PACKET *)malloc(pkt_size);
-
-    printf("Writing received data in %s\n", file_name);
-    fp = fopen(file_name+1, "w");
-
-    index_req = 1;
-    int loop_count = 0;
-
-
-    //Setting the timeout using setsockopt()
-    // timeout.tv_sec = 0;
-    // timeout.tv_usec = 500000;  //500ms timeout
-    // setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-
-    //Loop till entire file has been received
-    while(file_size > 0)
-    {
-        loop_count = 0;
-        nbytes = recvfrom(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, &remote_length);
-        if(pkt->index == index_req)
+        if(stat(folder, &st) == -1)
         {
-            printf("Correct data received\n");
-            printf("Received index is %d\n", pkt->index);
-
-            //64-bit decryption. double XOR every byte in packet to recover original data
-            while(loop_count<pkt_size)
-            {
-                pkt->buffer[loop_count] ^= key[loop_count % (key_len-1)] ^ key[loop_count % (key_len-1)];
-                ++loop_count;
-            }
-
-            fwrite(pkt->buffer, 1, pkt->data_length, fp);
-            file_size = file_size - pkt->data_length;
-            printf("Current file size is %ld\n", file_size);
-            memset(pkt, 0, pkt_size);
-            pkt->index = index_req;
-            nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-            index_req++;
+            mkdir(folder, 0700);
         }
-
-        //If old packet has been received, send ACK of old packet
-        else if (pkt->index < index_req)
-        {
-            printf("Old pkt received\n");
-            printf("Received index: %d\n", pkt->index);
-            old_index = pkt->index;
-            memset(pkt, 0, pkt_size);
-            pkt->index = old_index;
-            nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-        }
-        
-        //Else, index=0. This makes sender loop till it receives correct ACK
         else
         {
-            printf("Incorrect data received. Send data again\n");
-            // strcpy(pkt->buffer, "Incorrect index. Send again");
-            printf("Received index: %d\n", pkt->index);
-            memset(pkt, 0, pkt_size);
-            pkt->index = 0;
-            nbytes = sendto(sockfd, pkt, pkt_size, 0, (struct sockaddr *)&remote, sizeof(struct sockaddr));
-            // printf("Incorrect Received index is %d\n", pkt->index);
+            printf("Username folder already exists\n");
+            printf("The folder path is:%s\n", folder);
         }
-        memset(pkt, 0, pkt_size);
+        
+        memset(file_part_1, 0, 1024);
+        memset(file_part_2, 0, 1024);
+        memset(&byte_len_1, 0, sizeof(byte_len_1));
+        memset(&byte_len_2, 0, sizeof(byte_len_2));
+        memset(part1_name, 0, 100);
+        memset(part2_name, 0, 100);
+
+        // recv(newSocket,&byte_len_1,sizeof(byte_len_1),0);
+        // recv(newSocket,&byte_len_2,sizeof(byte_len_2),0);
+        printf("waiting for byte len of two parts\n");
+        // recv(sockfd,byte_len,16,0);
+        recv(sockfd, &byte_len_1, 4, 0);
+        recv(sockfd, &byte_len_2, 4, 0);
+        printf("byte len received\n");
+
+        printf("Waiting for file part name lengths...\n");
+        recv(sockfd, &part1_name_len, 4, 0);
+        recv(sockfd, &part2_name_len, 4, 0);
+        printf("file part name lengths received!!!\n");
+
+        printf("Waiting for file part names...\n");
+        recv(sockfd, part1_name, part1_name_len,0);
+        recv(sockfd, part2_name, part2_name_len,0);
+        printf("file part names received!!!\n");
+
+        printf("Waiting to receive actual file parts....\n");
+        recv(newSocket, file_part_1, byte_len_1, 0);
+        recv(newSocket, file_part_2, byte_len_2, 0);
+        printf("file parts received!!!\n");
+
+        printf("File part1 name is:%s\n", part1_name);
+        printf("File part1 size is:%d\n", byte_len_1);
+        printf("File part1 contents is:%s\n", file_part_1);
+
+        printf("File part2 name is:%s\n", part2_name);
+        printf("File part2 size is:%d\n", byte_len_2);
+        printf("File part2 contents is:%s\n", file_part_2);
+
+        //Putting the file in the user folder
+        memset(temp_buf, 0, 100);
+        strcpy(temp_buf, folder);
+        strcat(temp_buf, part1_name);
+
+        // size = pathconf(".", _PC_PATH_MAX);
+        // if((buf = (char*)malloc(size)))
+        //     ptr = getcwd(buf, size);
+        // printf("Current pwd is:%s\n", ptr);
+        fp_part1 = fopen(temp_buf, "w");
+        if(fp_part1 == NULL)
+        {
+            perror("part1 file error");
+        }
+        fwrite(file_part_1, 1, byte_len_1, fp_part1);
+        fclose(fp_part1);
+
+        //Putting the file in the user folder
+        memset(temp_buf, 0, 100);
+        strcpy(temp_buf, folder);
+        strcat(temp_buf, part2_name);
+
+        fp_part2 = fopen(temp_buf, "w");
+        if(fp_part2 == NULL)
+        {
+            perror("part2 file error");
+        }
+        fwrite(file_part_2, 1, byte_len_2, fp_part2);
+        fclose(fp_part2);
     }
-    // timeout.tv_sec = 0;
-    // timeout.tv_usec = 0;
-    // setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-    fclose(fp);
-    printf("Client to Server file transfer complete\n");
+    else
+        printf("User credentials not correct. Try again\n");
+
 }
-*/
+
 
 
 int main(int argc, char const *argv[])
 {
-    int welcomeSocket, newSocket;
-    char buffer[1024];
     struct sockaddr_in serverAddr;
-    struct sockaddr_storage serverStorage;
-    socklen_t addr_size;
+    struct sockaddr_in serverStorage;
+    int addr_size;
     int port;
-    char ACK;
-    char* recv_username = malloc(100);
-    char* recv_password = malloc(100);
-    char* req_username = malloc(100);
-    char* req_password = malloc(100);
-    char* cpy_1 = malloc(100);
-    char* cpy_2 = malloc(100);
-    char* token = malloc(100);
+    recv_username = malloc(100);
+    recv_password = malloc(100);
+    req_username = malloc(100);
+    req_password = malloc(100);
+    cpy_1 = malloc(100);
+    cpy_2 = malloc(100);
+    token = malloc(100);
+    folder = malloc(100);
+    temp_buf = malloc(100);
+    part1_name = malloc(100);
+    part2_name = malloc(100);
     char* file_contents = NULL;
     FILE *fp = NULL;
 
     /*---- Create the socket. The three arguments are: ----*/
     welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
-    if(argc < 2)
+    
+    if (setsockopt(welcomeSocket, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
+    if(argc < 3)
     {
-    	printf("Enter port number of server\n");
+    	printf("Enter port number / folder name of server\n");
     	exit(1);
     }
 
-    printf("Value of port is %s\n", argv[1]);
-    port = atoi(argv[1]);
+    // printf("Value of port is %s\n", argv[1]);
+    port = atoi(argv[2]);
     printf("Port:%d\n",port);
+    strcpy(folder, argv[1]+1);
+    printf("Folder name is:%s\n", folder);
 
 
     /*---- Configure settings of the server address struct ----*/
@@ -217,93 +326,84 @@ int main(int argc, char const *argv[])
     /*---- Bind the address struct to the socket ----*/
     bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
-    /*---- Listen on the socket, with 5 max connection requests queued ----*/
-    while(1)
-    {
-        if(listen(welcomeSocket,4)==0)
-        printf("Listening\n");
-        else
-        printf("Error\n");
+    /*---- Listen on the socket, with 1000 max connection requests queued ----*/
+    listen(welcomeSocket,(int)NUM_CLIENTS);
 
         /*---- Accept call creates a new socket for the incoming connection ----*/
-        addr_size = sizeof(serverStorage);
-        newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-
-        /*---- Receive message from the socket of the incoming connection ----*/
-
-        recv(newSocket,buffer,1024,0);
-
-
-        /* ------User credentials check ----------*/
-        printf("Received info is %s\n", buffer);
-        recv_username = strtok(buffer,",");
-        recv_password = strtok(NULL,",");
-        printf("Received user name:%s\n", recv_username);
-        printf("Received Password:%s\n", recv_password);
-
-        fp = fopen("dfs.conf", "r");
-        file_contents = malloc(file_size(fp));
-        fread(file_contents, 1, file_size(fp), fp);
-        printf("file contents:%s\n", file_contents);
-
-        if((cpy_1 = strstr(file_contents, recv_username)) != NULL)
-        {
-            req_username = strtok(cpy_1, " ,\n");
-            if(strcmp(req_username, recv_username) == 0)
-                printf("Username checks out\n");
-            else
-                printf("Error in username\n");
-        }
-        else
-            printf("Username not found\n");
-
-        if((cpy_2 = strstr(file_contents, recv_password)) != NULL)
-        {
-            req_password = strtok(cpy_2, ",");
-            // req_password = strtok(NULL, ",\n");
-            if(strcmp(req_password, recv_password) == 0)
-                printf("Password checks out\n");
-            else
-                printf("Error in Password:\n");
-        }
-        else
-            printf("Password not found\n");
-
-        if(req_password == NULL || req_username == NULL)
-        {
-            printf("Wrong credentials. Try Again\n");   // username/password not found in dfs.conf
-        }
-        else if(!strcmp(recv_username, req_username) && !strcmp(recv_password, req_password))
-        {
-            printf("Client credentials verified\n");
-            ACK = '1';
-            send(newSocket,&ACK,1,0);
-            break; 
-        }
-        else
-        {
-            printf("Wrong credentials. Try Again....\n");
-            ACK = '0';
-            send(newSocket,&ACK,1,0);
-        }
-        // memset(buffer, 0, sizeof(buffer));
-    }
-
-    memset(buffer, 0, sizeof(buffer));
-    recv(newSocket,buffer,1024,0);
-    if(strstr(buffer, "put") != NULL)
+    addr_size = sizeof(struct sockaddr_in);
+    // newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+    process_index = 0;
+    while(1)
     {
-        printf("Found command\n");
-        strcpy(file_name, (buffer + 3));
-        memset(buffer,0, sizeof(buffer));
-        strcpy(buffer, "Send file");
-        strcat(buffer, file_name);
-        printf("Sending the following string: %s\n", buffer);
-        send(newSocket,buffer,1024,0);
-        // put_file(file_name, sockfd, remote);
+        printf("Server menu:\n");
+        memset(buffer, 0, sizeof(buffer));
+        newSocket = accept(welcomeSocket, (struct sockaddr *)&serverStorage,(socklen_t*)&addr_size);
+        printf("Value of tmpsocket: %d\n", newSocket);
+        if(newSocket < 0)
+        {
+            perror("Accept error");
+        }
+        else if(fork() == 0)
+        {
+            close(welcomeSocket);   //child closes listening socket
+            while(1)
+            {
+                printf("Before recv\n");
+                // close(welcomeSocket);   //child closes listening socket
+                if(recv(newSocket,buffer,1024,0) < 0)
+                {
+                    perror("Recv Error");
+                    exit(0);
+                }
+                printf("After recv\n");
+                if(strstr(buffer, "put") != NULL)
+                {
+                    printf("Found command\n");
+                    strcpy(file_name, (buffer + 3));
+                    memset(buffer,0, sizeof(buffer));
+                    strcpy(buffer, "Send file");
+                    strcat(buffer, file_name);
+                    printf("Sending the following string: %s\n", buffer);
+                    if(send(newSocket,buffer,1024,0) < 0)
+                    {
+                        perror("Send Error");
+                        exit(0);
+                    }
+                    printf("after send\n");
+
+                    // int flag = user_credentials_check();
+                    put_file(file_name, newSocket);
+                    // exit(1);
+                }
+
+                if(strstr(buffer, "get") != NULL)
+                {
+                    printf("Found command\n");
+                    strcpy(file_name, (buffer + 3));
+                    memset(buffer,0, sizeof(buffer));
+                    strcpy(buffer, "Sending file");
+                    strcat(buffer, file_name);
+                    printf("Sending the following string: %s\n", buffer);
+                    if(send(newSocket,buffer,1024,0) < 0)
+                    {
+                        perror("Send Error");
+                        exit(0);
+                    }
+                    printf("after send\n");
+                    // put_file(file_name, newSocket);
+                    // exit(1);
+                }
+                // close(newSocket);
+                printf("Before child exit\n");
+                // exit(0);
+            }
+        }
+        // printf("after child exit\n");
+        // close(tmpSocket[process_index]);
+    // process_index++;
+    // while(tmpSocket[process_index] != -1)
+        // process_index = (process_index + 1) % NUM_CLIENTS;
     }
-
-
-
     return 0;
+
 }
