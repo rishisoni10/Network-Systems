@@ -200,22 +200,26 @@ void split_files(char *data_file_name)
     
     /*Reading "file_part_len[i]" number of bytes and storing them in different buffers, P[i]*/
     p_size[0] = fread(P[0], 1, file_part_len[0], fp);
-    // fwrite(P1, 1, file_part_len[0], fp_part[0]);
+    // fp_part[0] = fopen(file_parts[0], "w");
+    // fwrite(P[0], 1, file_part_len[0], fp_part[0]);
     // fclose(fp_part[0]);
     // free(P1);
 
     p_size[1] = fread(P[1], 1, file_part_len[1], fp);
-    // fwrite(P2, 1, file_part_len[1], fp_part[1]);
+    // fp_part[1] = fopen(file_parts[1], "w");
+    // fwrite(P[1], 1, file_part_len[1], fp_part[1]);
     // fclose(fp_part[1]);
     // free(P2);
 
     p_size[2] = fread(P[2], 1, file_part_len[2], fp);
-    // fwrite(P3, 1, file_part_len[2], fp_part[2]);
+    // fp_part[2] = fopen(file_parts[2], "w");
+    // fwrite(P[2], 1, file_part_len[2], fp_part[2]);
     // fclose(fp_part[2]);
     // free(P3);
 
     p_size[3] = fread(P[3], 1, file_part_len[3], fp);
-    // fwrite(P4, 1, file_part_len[3], fp_part[3]);
+    // fp_part[3] = fopen(file_parts[3], "w");
+    // fwrite(P[4], 1, file_part_len[3], fp_part[3]);
     // fclose(fp_part[3]);
     // free(P4);
 
@@ -285,8 +289,8 @@ void send_part(int socket, int part_a, int part_b)
         send(socket, &string_b_len, sizeof(int), 0);
 
         //Sending file part name first 
-        send(socket, file_parts[0], strlen(file_parts[0])+1, 0);
-        send(socket, file_parts[1], strlen(file_parts[1])+1, 0);
+        send(socket, file_parts[0], string_a_len, 0);
+        send(socket, file_parts[1], string_b_len, 0);
 
         //Sending actual file parts
         send(socket, P[0], p_size[0], 0);
@@ -311,8 +315,8 @@ void send_part(int socket, int part_a, int part_b)
         send(socket, &string_b_len, sizeof(int), 0);
 
         //Sending file part name first 
-        send(socket, file_parts[1], strlen(file_parts[0])+1, 0);
-        send(socket, file_parts[2], strlen(file_parts[1])+1, 0);
+        send(socket, file_parts[1], string_a_len, 0);
+        send(socket, file_parts[2], string_b_len, 0);
 
         //Sending actual file parts
         send(socket, P[1], p_size[1], 0);
@@ -337,11 +341,11 @@ void send_part(int socket, int part_a, int part_b)
         send(socket, &string_b_len, sizeof(int), 0);
 
         //Sending file part name first 
-        send(socket, file_parts[2], strlen(file_parts[0])+1, 0);
-        send(socket, file_parts[3], strlen(file_parts[1])+1, 0);
+        send(socket, file_parts[2], string_a_len, 0);
+        send(socket, file_parts[3], string_b_len, 0);
 
         //Sending actual file parts
-        send(socket, P[2], p_size[3], 0);
+        send(socket, P[2], p_size[2], 0);
         send(socket, P[3], p_size[3], 0);
 
         string_a_len = 0;
@@ -363,8 +367,8 @@ void send_part(int socket, int part_a, int part_b)
         send(socket, &string_b_len, sizeof(int), 0);
 
         //Sending file part name first 
-        send(socket, file_parts[3], strlen(file_parts[0])+1, 0);
-        send(socket, file_parts[0], strlen(file_parts[1])+1, 0);
+        send(socket, file_parts[3], string_a_len, 0);
+        send(socket, file_parts[0], string_b_len, 0);
 
         //Sending actual file parts
         send(socket, P[3], p_size[3], 0);
@@ -420,7 +424,6 @@ void user_credentials(void)
 *
 * @return void 
 */
-
 
 void put_file(char *data_file_name, char* subfolder)
 {
@@ -592,8 +595,8 @@ int main(int argc, char const *argv[])
         printf("Sending entered command to server\n");
         sending = send(clientSocket[0],command,1024,0);
         sending = send(clientSocket[1],command,1024,0);
-        sending = send(clientSocket[3],command,1024,0);
         sending = send(clientSocket[2],command,1024,0);
+        sending = send(clientSocket[3],command,1024,0);
 
         if(sending < 0)
         {
@@ -604,8 +607,8 @@ int main(int argc, char const *argv[])
         
         receiving = recv(clientSocket[0], command_2, 1024, 0);
         receiving = recv(clientSocket[1], command_2, 1024, 0);
-        receiving = recv(clientSocket[3], command_2, 1024, 0);
         receiving = recv(clientSocket[2], command_2, 1024, 0);
+        receiving = recv(clientSocket[3], command_2, 1024, 0);
 
 
         if(receiving < 0)
