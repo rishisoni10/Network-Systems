@@ -43,6 +43,8 @@ char filename[FILENAME_LEN];
 int sending, receiving;
 int string_a_len, string_b_len;
 
+unsigned int mod;
+
 char command[100];
 char command_2[100];
 FILE *fp_part[4];        /* Array of file pointers */
@@ -54,7 +56,7 @@ int file_part_len[4];
 int clientSocket[4];     /* Array of socket descriptors for 4 connections*/
 struct sockaddr_in serverAddr[4];
 
-char buffer[1024], buffer1[1024], buffer2[1024], buffer3[1024], buffer4[1024];
+char buffer[1024], buffer_1[1024], buffer_2[1024], buffer_3[1024], buffer_4[1024];
 socklen_t addr_size;
 char* username = NULL;
 char* password = NULL;
@@ -62,6 +64,14 @@ char* reply = NULL;
 char* subfolder = NULL;
 char *P[4];              /* Array of pointers to split file contents*/
 size_t p_size[4];
+
+int file_num_1, file_num_2, file_num_3, file_num_4;
+int server_1_file_len, server_2_file_len, server_3_file_len, server_4_file_len;
+char* server_1_buf = NULL;
+char* server_2_buf = NULL;
+char* server_3_buf = NULL;
+char* server_4_buf = NULL;
+
 // char* P2 = NULL;
 // char* P3 = NULL;
 // char* P4 = NULL;
@@ -415,6 +425,27 @@ void user_credentials(void)
 
 }
 
+unsigned int MD5HASH_mod(char * data_file_name)
+{
+    printf("File name is:%s\n", data_file_name);
+
+    //*Opening file to calculate its MD5SUM
+    FILE* fp = fopen(data_file_name, "r");
+    if(fp == NULL)
+    {
+       errsv = errno;
+       printf("ERRNO is %d\n", errsv);
+       perror("could not open file");
+       exit(1);
+    }   
+    // printf("Return value is %d\n", MD5HASH(fp));
+    printf("Getting mod value of MD5SUM....\n");
+    unsigned int x = MD5HASH(fp) % 4;
+    printf("x is %d\n",x);
+    fclose(fp);
+    return x;
+}
+
 /*
 * @brief Sends file to server
 *
@@ -432,89 +463,151 @@ void put_file(char *data_file_name, char* subfolder)
     // unsigned int x;
     unsigned int x;
     int len;
-    FILE *fp = NULL;
-    // strcpy(command, "Sending user credentials");
-    // printf("%s\n", command);
-    
-    // send(clientSocket[0],command,strlen(command)+1,0);    
-    // memset(command, 0, sizeof(command));
-
-    // recv(clientSocket[0], command, 1024, 0);
-    // printf("Server sends: %s\n", command);
-
-    //Enters if ACK of "Okay" received from server
-    // if(strcmp(command, "Okay") == 0)
+    // FILE *fp = NULL;
+    // printf("File name is:%s\n", data_file_name);
+    // //*Opening file to calculate its MD5SUM
+    // fp = fopen(data_file_name, "r");
+    // if(fp == NULL)
     // {
-        // user_credentials();
-        printf("File name is:%s\n", data_file_name);
-        memset(command, 0, sizeof(command));
+    //    errsv = errno;
+    //    printf("ERRNO is %d\n", errsv);
+    //    perror("could not open file");
+    //    exit(1);
+    // }   
+    // // printf("Return value is %d\n", MD5HASH(fp));
+    // printf("Getting mod value of MD5SUM....\n");
+    // x = MD5HASH(fp) % 4;
+    // printf("x is %d\n",x);
+    // fclose(fp);
+    
 
-        //*Opening file to calculate its MD5SUM
-        fp = fopen(data_file_name, "r");
-        if(fp == NULL)
-        {
-           errsv = errno;
-           printf("ERRNO is %d\n", errsv);
-           perror("could not open file");
-           exit(1);
-        }   
-        // printf("Return value is %d\n", MD5HASH(fp));
-        printf("Getting mod value of MD5SUM....\n");
-        x = MD5HASH(fp) % 4;
-        printf("x is %d\n",x);
-        fclose(fp);
+    if(mod == 0)
+    {
+        printf("0 case\n");
+        printf("DFS1:(1,2), DFS2:(2,3), DFS3:(3,4), DFS4:(4,1)\n");
         
+        send_part(clientSocket[0], 1, 2);
+        send_part(clientSocket[1], 2, 3);
+        send_part(clientSocket[2], 3, 4);
+        send_part(clientSocket[3], 4, 1);
+    }
 
-        if(x == 0)
-        {
-            printf("0 case\n");
-            printf("DFS1:(1,2), DFS2:(2,3), DFS3:(3,4), DFS4:(4,1)\n");
-            
-            send_part(clientSocket[0], 1, 2);
-            send_part(clientSocket[1], 2, 3);
-            send_part(clientSocket[2], 3, 4);
-            send_part(clientSocket[3], 4, 1);
-        }
-
-        else if (x == 1)
-        {
-            printf("1 case\n");
-            printf("DFS1:(4,1), DFS2:(1,2), DFS3:(2,3), DFS4:(3,4)\n");
-            send_part(clientSocket[0], 4, 1);
-            send_part(clientSocket[1], 1, 2);
-            send_part(clientSocket[2], 2, 3);
-            send_part(clientSocket[3], 3, 4);
-            
-        }
-        else if (x == 2)
-        {
-            printf("2 case\n");
-            printf("DFS1:(3,4), DFS2:(4,1), DFS3:(1,2), DFS4:(2,3)\n");
-            send_part(clientSocket[0], 3, 4);
-            send_part(clientSocket[1], 4, 1);
-            send_part(clientSocket[2], 1, 2);
-            send_part(clientSocket[3], 2, 3);
-
-        }
-        else if(x == 3)
-        {
-            printf("3 case\n");
-            printf("DFS1:(2,3), DFS2:(3,4), DFS3:(4,1), DFS4:(1,2)");
-            send_part(clientSocket[0], 2, 3);
-            send_part(clientSocket[1], 3, 4);
-            send_part(clientSocket[2], 4, 1);
-            send_part(clientSocket[3], 1, 2);
-        }
-
-        // //Setting the timeout using setsockopt()
-        // timeout.tv_sec = 0;
-        // timeout.tv_usec = 500000;  //500ms timeout
-        // setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+    else if (mod == 1)
+    {
+        printf("1 case\n");
+        printf("DFS1:(4,1), DFS2:(1,2), DFS3:(2,3), DFS4:(3,4)\n");
+        send_part(clientSocket[0], 4, 1);
+        send_part(clientSocket[1], 1, 2);
+        send_part(clientSocket[2], 2, 3);
+        send_part(clientSocket[3], 3, 4);
         
-    // }
-    // printf("Number of ACKs is %d\n", count);
+    }
+    else if (mod == 2)
+    {
+        printf("2 case\n");
+        printf("DFS1:(3,4), DFS2:(4,1), DFS3:(1,2), DFS4:(2,3)\n");
+        send_part(clientSocket[0], 3, 4);
+        send_part(clientSocket[1], 4, 1);
+        send_part(clientSocket[2], 1, 2);
+        send_part(clientSocket[3], 2, 3);
+
+    }
+    else if(mod == 3)
+    {
+        printf("3 case\n");
+        printf("DFS1:(2,3), DFS2:(3,4), DFS3:(4,1), DFS4:(1,2)");
+        send_part(clientSocket[0], 2, 3);
+        send_part(clientSocket[1], 3, 4);
+        send_part(clientSocket[2], 4, 1);
+        send_part(clientSocket[3], 1, 2);
+    }
+
+    // //Setting the timeout using setsockopt()
+    // timeout.tv_sec = 0;
+    // timeout.tv_usec = 500000;  //500ms timeout
+    // setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+    
 }
 
+void list(void)
+{
+    if(mod == 0)
+    // printf("Waiting for file part name lengths...\n");
+    printf("In list function\n");
+    
+    memset(server_1_buf, 0, 1024);
+    memset(server_2_buf, 0, 1024);
+    memset(server_3_buf, 0, 1024);
+    memset(server_4_buf, 0, 1024);
+
+    memset(buffer_1, 0, 1024);
+    memset(buffer_2, 0, 1024);
+    memset(buffer_3, 0, 1024);
+    memset(buffer_4, 0, 1024);
+    
+    //Receiving the number of files in each server
+    recv(clientSocket[0], &file_num_1, sizeof(int), 0);
+    recv(clientSocket[1], &file_num_2, sizeof(int), 0);
+    recv(clientSocket[2], &file_num_3, sizeof(int), 0);
+    recv(clientSocket[3], &file_num_4, sizeof(int), 0);
+
+    //Receiving the file name lengths and the file name from each server
+    while(1)
+    {
+        if(file_num_1 > 0)
+        {
+            // printf("Server 1:%d\n", file_num_1);
+            memset(buffer_1, 0, 1024);
+            recv(clientSocket[0], &server_1_file_len, sizeof(int), 0);
+            recv(clientSocket[0], buffer_1, server_1_file_len, 0);
+            strcat(server_1_buf, buffer_1);
+            // printf("Server 1 file:%s", server_1_buf);
+            file_num_1--;
+        }
+        if(file_num_2 > 0)
+        {
+            // printf("Server 2:%d\n", file_num_2);
+            memset(buffer_2, 0, 1024);
+            recv(clientSocket[1], &server_2_file_len, sizeof(int), 0);
+            recv(clientSocket[1], buffer_2, server_2_file_len, 0);
+            // printf("Server 2 file:%s", server_2_buf);
+            strcat(server_2_buf, buffer_2);
+            file_num_2--;
+        }
+
+        if(file_num_3 > 0)
+        {
+            // printf("Server 3:%d\n", file_num_3);
+            memset(buffer_3, 0, 1024);
+            recv(clientSocket[2], &server_3_file_len, sizeof(int), 0);
+            recv(clientSocket[2], buffer_3, server_3_file_len, 0);
+            // printf("Server 3 file:%s", server_3_buf);
+            strcat(server_3_buf, buffer_3);
+            file_num_3--;
+        }
+
+        if(file_num_4 > 0)
+        {
+            // printf("Server 4:%d\n", file_num_4);
+            memset(buffer_4, 0, 1024);
+            recv(clientSocket[3], &server_4_file_len, sizeof(int), 0);
+            recv(clientSocket[3], buffer_4, server_4_file_len, 0);
+            // printf("Server 4 file:%s", server_4_buf);
+            strcat(server_4_buf, buffer_4);
+            file_num_4--;
+        }
+        else 
+        {
+            printf("Break away from tyranny\n");
+            break;
+        }
+    }
+    printf("file part names received!!!\n");
+    printf("Server 1 file:%s", server_1_buf);
+    printf("Server 2 file:%s", server_2_buf);
+    printf("Server 3 file:%s", server_3_buf);
+    printf("Server 4 file:%s", server_4_buf);
+}
 
 int main(int argc, char const *argv[])
 {
@@ -537,6 +630,12 @@ int main(int argc, char const *argv[])
     password = malloc(100);
     reply = malloc(1);
     subfolder = malloc(100);
+
+    server_1_buf = malloc(1024);
+    server_2_buf = malloc(1024);
+    server_3_buf = malloc(1024);
+    server_4_buf = malloc(1024);
+
     for (i = 0; i < 4; ++i)
     {
         PORTS[i] = (char*)malloc(10);
@@ -634,15 +733,15 @@ int main(int argc, char const *argv[])
             data_file_name = strtok(data_file_name, " ");
             printf("Data file name is:%s\n", data_file_name);
             user_credentials();
+            mod = MD5HASH_mod(data_file_name);
             put_file(data_file_name, subfolder);
         }
 
-        if(strstr(command_2, "Sending file"))
+        if(strstr(command_2, "Sending list"))
         {
-            // strcpy(file_name, (command + 10));
-            // split_files(filename);
-            printf("Get command found\n");
-            // put_file(file_name, clientSocket, x);
+            printf("List command found\n");
+            user_credentials();
+            list();
         }
     }
     
