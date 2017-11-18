@@ -38,7 +38,8 @@ int process_index;
 int byte_len_1, byte_len_2;
 int byte_len[4];
 int ret;     
-int file_num;                   
+int file_num; 
+int sub_ACK;                  
 char file_name[10];
 char buffer[1024];
 int welcomeSocket, newSocket;
@@ -52,7 +53,9 @@ char* token = NULL;
 char* file_contents = NULL;
 char* folder = NULL;
 char* folder_cp = NULL;
+char* subfolder = NULL;
 char* temp_buf = NULL;
+char* subfolder_ACK = NULL;
 
 char* part1_name = NULL;
 char* file_part_1 = NULL;
@@ -186,23 +189,24 @@ void put_file(char *file_name, int sockfd)
     struct stat st = {0};
     FILE* fp_part1 = NULL;
     FILE* fp_part2 = NULL;
+    int sub_len, sub_flag;
 
     if(flag == 1)
     {
-        // Username folder creation
-        strcat(folder, "/");
-        strcat(folder, req_username);
-        strcat(folder, "/");
+        // // Username folder creation
+        // strcat(folder, "/");
+        // strcat(folder, req_username);
+        // strcat(folder, "/");
 
-        if(stat(folder, &st) == -1)
-        {
-            mkdir(folder, 0700);
-        }
-        else
-        {
-            printf("Username folder already exists\n");
-            printf("The folder path is:%s\n", folder);
-        }
+        // if(stat(folder, &st) == -1)
+        // {
+        //     mkdir(folder, 0700);
+        // }
+        // else
+        // {
+        //     printf("Username folder already exists\n");
+        //     printf("The folder path is:%s\n", folder);
+        // }
 
         // memset(file_part_1, 0, 1024);
         // memset(file_part_2, 0, 1024);
@@ -212,6 +216,8 @@ void put_file(char *file_name, int sockfd)
         memset(&part2_name_len, 0, 4);
         memset(part1_name, 0, 150);
         memset(part2_name, 0, 150);
+        memset(subfolder, 0, 100);
+        memset(subfolder_ACK, 0, 5);
 
         printf("waiting for byte len of two parts\n");
         recv(sockfd, &byte_len_1, 4, 0);
@@ -245,10 +251,62 @@ void put_file(char *file_name, int sockfd)
         printf("File part2 size is:%d\n", byte_len_2);
         // printf("File part2 contents is:%s\n", file_part_2);
 
-        //Putting the file in the user folder
-        memset(temp_buf, 0, 150);
-        strcpy(temp_buf, folder);
-        strcat(temp_buf, part1_name);
+        //Checking if subfolder is present (ACK or NACK)
+        recv(newSocket, &sub_ACK, 4, 0);
+        recv(newSocket, subfolder_ACK, sub_ACK, 0);
+
+        if(strcmp(subfolder_ACK, "1") == 0)
+        {
+            sub_flag = 1;
+            recv(newSocket, &sub_len, 4, 0);
+            recv(newSocket, subfolder, 4, 0);
+            memset(temp_buf, 0, 200);
+        }
+        else if(strcmp(subfolder_ACK, "0") == 0)
+        {
+            sub_flag = 0;
+            printf("No SUBFOLDER FOUND!!!!!!!!!!!!!!!!!!\n");
+            //Putting the file in the user folder
+            memset(temp_buf, 0, 200);
+        }
+
+        //Username folder + subfolder creation
+        strcat(folder, "/");
+        strcat(folder, req_username);
+        strcat(folder, "/");
+        if(sub_flag == 1)
+        {
+            strcat(subfolder, "/");
+            strcat(folder, subfolder);
+            if(stat(folder, &st) == -1)
+            {
+                mkdir(folder, 0700);
+            }
+            else
+            {
+                printf("Username folder & subfolder already exists\n");
+                printf("The folder path is:%s\n", folder);
+            }
+            strcpy(temp_buf, folder);
+            strcat(temp_buf, part1_name);
+            printf("New path is:%s\n", temp_buf);
+        }
+
+        else if(sub_flag == 0)
+        {
+            if(stat(folder, &st) == -1)
+            {
+                mkdir(folder, 0700);
+            }
+            else
+            {
+                printf("Username folder already exists\n");
+                printf("The folder path is:%s\n", folder);
+            }
+            strcpy(temp_buf, folder);
+            strcat(temp_buf, part1_name);
+            printf("New path is:%s\n", temp_buf);
+        }
 
         fp_part1 = fopen(temp_buf, "w");
         if(fp_part1 == NULL)
@@ -350,9 +408,11 @@ int main(int argc, char const *argv[])
     token = malloc(100);
     folder = malloc(100);
     folder_cp = malloc(100);
-    temp_buf = malloc(150);
+    subfolder = malloc(100);
+    temp_buf = malloc(200);
     part1_name = malloc(150);
     part2_name = malloc(150);
+    subfolder_ACK = malloc(5);
     char* file_contents = NULL;
     FILE *fp = NULL;
 

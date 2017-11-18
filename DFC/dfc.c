@@ -37,7 +37,7 @@
 
 
 // void put_file(char*, char*);
-
+int no_sub;
 int errsv = 0;
 char filename[FILENAME_LEN];
 int sending, receiving;
@@ -48,7 +48,6 @@ char command_2[100];
 FILE *fp_part[4];        /* Array of file pointers */
 char *file_parts[4];     /* Array of string pointers for split file names*/
 char *PORTS[4];          /* Array of string pointers for port numbers*/
-// int s1_port, s2_port, s3_port, s4_port;
 int s_port[4];
 int file_part_len[4];
 int clientSocket[4];     /* Array of socket descriptors for 4 connections*/
@@ -375,7 +374,7 @@ void put_file(char *data_file_name, char* subfolder)
     split_files(data_file_name);    //Splits file in 4 parts for 4 servers
     unsigned int x;
     int i;
-    int len;
+    int len, sub_len;
     FILE *fp = NULL;
    
     printf("File name is:%s\n", data_file_name);
@@ -437,12 +436,61 @@ void put_file(char *data_file_name, char* subfolder)
         send_part(clientSocket[3], 1, 2);
     }
 
-    printf("Freeing everything\n");
+
+    if(subfolder == NULL)
+    {
+        printf("subfolder is NULLLLLLLLL\n");
+        no_sub = 2;
+
+        //Sending size of NACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending NACK of subfolder
+        send(clientSocket[0],"0",no_sub,0);
+        send(clientSocket[1],"0",no_sub,0);
+        send(clientSocket[2],"0",no_sub,0);
+        send(clientSocket[3],"0",no_sub,0);
+
+    }
+    else
+    {
+        printf("subfolder is %s\n", subfolder);
+        no_sub = 2;
+        //Sending size of ACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending ACK of subfolder
+        send(clientSocket[0],"1",no_sub,0);
+        send(clientSocket[1],"1",no_sub,0);
+        send(clientSocket[2],"1",no_sub,0);
+        send(clientSocket[3],"1",no_sub,0);
+
+        //Sending subfolder length
+        sub_len = strlen(subfolder) + 1;
+        send(clientSocket[0], &sub_len, 4, 0);
+        send(clientSocket[1], &sub_len, 4, 0);
+        send(clientSocket[2], &sub_len, 4, 0);
+        send(clientSocket[3], &sub_len, 4, 0);
+
+        //Sending subfolder
+        send(clientSocket[0], subfolder, sub_len, 0);
+        send(clientSocket[1], subfolder, sub_len, 0);
+        send(clientSocket[2], subfolder, sub_len, 0);
+        send(clientSocket[3], subfolder, sub_len, 0);
+    }
+
+    // printf("Freeing everything\n");
     for(int i = 0; i < 4; i++)
     {
-       printf("data freeing\n");
+       // printf("data freeing\n");
        free(P[i]);
-       printf("data name freeing\n");
+       // printf("data name freeing\n");
        free(file_parts[i]);
     }
 }
@@ -644,8 +692,8 @@ int main(int argc, char const *argv[])
 
         printf("\r\n     *** Main Menu ***\n\r");
         printf("Enter the following commands for file transfers / handling\n");
-        printf("get <file_name>\n");
-        printf("put <file_name>\n");
+        printf("get <file_name> <subfolder>\n");
+        printf("put <file_name> <subfolder>\n");
         printf("list\n");
         printf("mkdir <subfolder>\n");
         printf("Type in the command followed by the <file_name>, if the command requires\n");
