@@ -54,18 +54,20 @@ int file_part_len[4];
 int clientSocket[4];     /* Array of socket descriptors for 4 connections*/
 struct sockaddr_in serverAddr[4];
 
-char buffer[1024], buffer1[1024], buffer2[1024], buffer3[1024], buffer4[1024];
+char buffer[1024], buffer_1[1024], buffer_2[1024], buffer_3[1024], buffer_4[1024];
 socklen_t addr_size;
 char* username = NULL;
 char* password = NULL;
 char* reply = NULL;
 char* subfolder = NULL;
 char *P[4];              /* Array of pointers to split file contents*/
-// size_t p_size[4];
-// char* P2 = NULL;
-// char* P3 = NULL;
-// char* P4 = NULL;
-// char *a;
+int file_num_1, file_num_2, file_num_3, file_num_4;
+int server_1_file_len, server_2_file_len, server_3_file_len, server_4_file_len;
+char* server_1_buf = NULL;
+char* server_2_buf = NULL;
+char* server_3_buf = NULL;
+char* server_4_buf = NULL;
+
 
 void signal_handler(int signum)
 {
@@ -479,8 +481,90 @@ void user_credentials(void)
         printf("User credentials correct\n");
     else
         printf("No reply from server\n");
-
 }
+
+void list(void)
+{
+    // printf("Waiting for file part name lengths...\n");
+    printf("In list function\n");
+    
+    memset(server_1_buf, 0, 1024);
+    memset(server_2_buf, 0, 1024);
+    memset(server_3_buf, 0, 1024);
+    memset(server_4_buf, 0, 1024);
+
+    memset(buffer_1, 0, 1024);
+    memset(buffer_2, 0, 1024);
+    memset(buffer_3, 0, 1024);
+    memset(buffer_4, 0, 1024);
+    
+    //Receiving the number of files in each server
+    recv(clientSocket[0], &file_num_1, sizeof(int), 0);
+    recv(clientSocket[1], &file_num_2, sizeof(int), 0);
+    recv(clientSocket[2], &file_num_3, sizeof(int), 0);
+    recv(clientSocket[3], &file_num_4, sizeof(int), 0);
+
+    //Receiving the file name lengths and the file name from each server
+    while(1)
+    {
+        if(file_num_1 > 0)
+        {
+            // printf("Server 1:%d\n", file_num_1);
+            memset(buffer_1, 0, 1024);
+            recv(clientSocket[0], &server_1_file_len, sizeof(int), 0);
+            recv(clientSocket[0], buffer_1, server_1_file_len, 0);
+            strcat(server_1_buf, buffer_1);
+            // printf("Server 1 file:%s", server_1_buf);
+            file_num_1--;
+        }
+        if(file_num_2 > 0)
+        {
+            // printf("Server 2:%d\n", file_num_2);
+            memset(buffer_2, 0, 1024);
+            recv(clientSocket[1], &server_2_file_len, sizeof(int), 0);
+            recv(clientSocket[1], buffer_2, server_2_file_len, 0);
+            // printf("Server 2 file:%s", server_2_buf);
+            strcat(server_2_buf, buffer_2);
+            file_num_2--;
+        }
+
+        if(file_num_3 > 0)
+        {
+            // printf("Server 3:%d\n", file_num_3);
+            memset(buffer_3, 0, 1024);
+            recv(clientSocket[2], &server_3_file_len, sizeof(int), 0);
+            recv(clientSocket[2], buffer_3, server_3_file_len, 0);
+            // printf("Server 3 file:%s", server_3_buf);
+            strcat(server_3_buf, buffer_3);
+            file_num_3--;
+        }
+
+        if(file_num_4 > 0)
+        {
+            // printf("Server 4:%d\n", file_num_4);
+            memset(buffer_4, 0, 1024);
+            recv(clientSocket[3], &server_4_file_len, sizeof(int), 0);
+            recv(clientSocket[3], buffer_4, server_4_file_len, 0);
+            // printf("Server 4 file:%s", server_4_buf);
+            strcat(server_4_buf, buffer_4);
+            file_num_4--;
+        }
+        else 
+        {
+            printf("Break away from tyranny\n");
+            break;
+        }
+    }
+    printf("file part names received!!!\n");
+    printf("Server 1 file:%s", server_1_buf);
+    printf("Server 2 file:%s", server_2_buf);
+    printf("Server 3 file:%s", server_3_buf);
+    printf("Server 4 file:%s", server_4_buf);
+    printf("\n");
+
+    
+}
+
 
 int main(int argc, char const *argv[])
 {
@@ -505,6 +589,10 @@ int main(int argc, char const *argv[])
     subfolder = malloc(50);
     data_file_name = malloc(50);
     
+    server_1_buf = malloc(1024);
+    server_2_buf = malloc(1024);
+    server_3_buf = malloc(1024);
+    server_4_buf = malloc(1024);
     for (i = 0; i < 4; ++i)
     {
         PORTS[i] = (char*)malloc(10);
@@ -609,9 +697,11 @@ int main(int argc, char const *argv[])
             put_file(data_file_name, subfolder);
         }
 
-        if(strstr(command_2, "Sending file"))
+        if(strstr(command_2, "Sending list"))
         {
-            printf("Get command found\n");
+            printf("List command found\n");
+            user_credentials();
+            list();
         }
     }
     

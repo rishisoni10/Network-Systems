@@ -30,13 +30,15 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <arpa/inet.h>  //inet_addr
+#include <dirent.h>
 
 #define NUM_CLIENTS     (1000)
 int multi_clients[NUM_CLIENTS];
 int process_index;
 int byte_len_1, byte_len_2;
 int byte_len[4];
-int ret;                        
+int ret;     
+int file_num;                   
 char file_name[10];
 char buffer[1024];
 int welcomeSocket, newSocket;
@@ -49,6 +51,7 @@ char* cpy_2 = NULL;
 char* token = NULL;
 char* file_contents = NULL;
 char* folder = NULL;
+char* folder_cp = NULL;
 char* temp_buf = NULL;
 
 char* part1_name = NULL;
@@ -66,7 +69,8 @@ char* buf = NULL;
 char* ptr = NULL;
 size_t size;
 
-int tmpSocket[NUM_CLIENTS];
+int string_len;
+// int tmpSocket[NUM_CLIENTS];
 
 int file_size(FILE *file_fp)
 {
@@ -274,6 +278,61 @@ void put_file(char *file_name, int sockfd)
         printf("User credentials not correct. Try again\n");
 }
 
+void list(int sockfd)
+{
+    int flag = user_credentials_check();
+    // memset(buffer, 0, 1024);
+    //Storing directory contents in a buffer and sending the buffer
+    memset(folder_cp, 0, 100);
+    strcpy(folder_cp, folder);
+    strcat(folder_cp, "/");
+    strcat(folder_cp, req_username);
+    strcat(folder_cp, "/");
+
+    DIR *dp = NULL;
+    struct dirent *sd = NULL;
+
+    //Counting the number of files in the directory and sending it to client
+    dp = opendir((const char*)folder_cp);
+    while((sd = readdir(dp)) != NULL)
+    {
+        file_num++;
+    }
+    file_num = file_num - 2;    //removing count of the two hidden files
+    closedir(dp);
+    send(sockfd, &file_num, sizeof(int), 0);
+
+    dp = opendir((const char*)folder_cp);
+    while((sd = readdir(dp)) != NULL)
+    {
+        memset(buffer, 0, 1024);
+        if((strcmp(".", sd->d_name))== 0)
+        {
+            //Do nothing
+        }
+        else if((strcmp("..", sd->d_name)) == 0)
+        {
+            //Do nothing
+        }
+        else 
+        {
+            strcat(buffer, sd->d_name);
+            strcat(buffer, "\n");
+            string_len = strlen(buffer) + 1;
+
+            //Sending file part name lengths before sending file part
+            send(sockfd, &string_len, sizeof(int), 0);
+            
+            //Sending the file part name
+            send(sockfd, buffer, string_len, 0);
+            printf("Buffer contents:%s", buffer);
+        }
+    }
+    // printf("Buffer contents:%s", buffer);
+    //Sending file part name lengths before sending file part
+    // send(socket, &string_a_len, sizeof(int), 0);
+    // send(socket, &string_b_len, sizeof(int), 0);
+}
 
 
 int main(int argc, char const *argv[])
@@ -290,6 +349,7 @@ int main(int argc, char const *argv[])
     cpy_2 = malloc(100);
     token = malloc(100);
     folder = malloc(100);
+    folder_cp = malloc(100);
     temp_buf = malloc(150);
     part1_name = malloc(150);
     part2_name = malloc(150);
@@ -380,12 +440,12 @@ int main(int argc, char const *argv[])
                     // exit(1);
                 }
 
-                if(strstr(buffer, "get") != NULL)
+                if(strstr(buffer, "list") != NULL)
                 {
                     printf("Found command\n");
                     strcpy(file_name, (buffer + 3));
                     memset(buffer,0, sizeof(buffer));
-                    strcpy(buffer, "Sending file");
+                    strcpy(buffer, "Sending list");
                     strcat(buffer, file_name);
                     printf("Sending the following string: %s\n", buffer);
                     if(send(newSocket,buffer,1024,0) < 0)
@@ -394,6 +454,7 @@ int main(int argc, char const *argv[])
                         exit(0);
                     }
                     printf("after send\n");
+                    list(newSocket);
                     // put_file(file_name, newSocket);
                     // exit(1);
                 }
@@ -402,11 +463,6 @@ int main(int argc, char const *argv[])
             }
             printf("After child exit\n");
         }
-        // printf("after child exit\n");
-        // close(tmpSocket[process_index]);
-    // process_index++;
-    // while(tmpSocket[process_index] != -1)
-        // process_index = (process_index + 1) % NUM_CLIENTS;
     }
     return 0;
 
