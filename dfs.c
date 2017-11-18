@@ -30,15 +30,13 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <arpa/inet.h>  //inet_addr
-#include <dirent.h>
 
 #define NUM_CLIENTS     (1000)
 int multi_clients[NUM_CLIENTS];
 int process_index;
 int byte_len_1, byte_len_2;
 int byte_len[4];
-int ret;
-int file_num;                        
+int ret;                        
 char file_name[10];
 char buffer[1024];
 int welcomeSocket, newSocket;
@@ -51,15 +49,14 @@ char* cpy_2 = NULL;
 char* token = NULL;
 char* file_contents = NULL;
 char* folder = NULL;
-char* folder_cp = NULL;
 char* temp_buf = NULL;
 
 char* part1_name = NULL;
-char file_part_1[1024];
+char* file_part_1 = NULL;
 int part1_name_len;
 
 char* part2_name = NULL;
-char file_part_2[1024];
+char* file_part_2 = NULL;
 int part2_name_len;
 
 FILE *fp = NULL;
@@ -68,8 +65,6 @@ char ACK = '0';
 char* buf = NULL;
 char* ptr = NULL;
 size_t size;
-
-int string_len;
 
 int tmpSocket[NUM_CLIENTS];
 
@@ -191,33 +186,30 @@ void put_file(char *file_name, int sockfd)
     if(flag == 1)
     {
         // Username folder creation
-        memset(folder_cp, 0, 100);
-        strcpy(folder_cp, folder);
-        strcat(folder_cp, "/");
-        strcat(folder_cp, req_username);
-        strcat(folder_cp, "/");
+        strcat(folder, "/");
+        strcat(folder, req_username);
+        strcat(folder, "/");
 
-        if(stat(folder_cp, &st) == -1)
+        if(stat(folder, &st) == -1)
         {
-            mkdir(folder_cp, 0700);
+            mkdir(folder, 0700);
         }
         else
         {
             printf("Username folder already exists\n");
-            printf("The folder path is:%s\n", folder_cp);
+            printf("The folder path is:%s\n", folder);
         }
 
-        memset(file_part_1, 0, 1024);
-        memset(file_part_2, 0, 1024);
-        memset(&byte_len_1, 0, sizeof(byte_len_1));
-        memset(&byte_len_2, 0, sizeof(byte_len_2));
-        memset(part1_name, 0, 100);
-        memset(part2_name, 0, 100);
+        // memset(file_part_1, 0, 1024);
+        // memset(file_part_2, 0, 1024);
+        memset(&byte_len_1, 0, 4);
+        memset(&byte_len_2, 0, 4);
+        memset(&part1_name_len, 0, 4);
+        memset(&part2_name_len, 0, 4);
+        memset(part1_name, 0, 150);
+        memset(part2_name, 0, 150);
 
-        // recv(newSocket,&byte_len_1,sizeof(byte_len_1),0);
-        // recv(newSocket,&byte_len_2,sizeof(byte_len_2),0);
         printf("waiting for byte len of two parts\n");
-        // recv(sockfd,byte_len,16,0);
         recv(sockfd, &byte_len_1, 4, 0);
         recv(sockfd, &byte_len_2, 4, 0);
         printf("byte len received\n");
@@ -232,6 +224,10 @@ void put_file(char *file_name, int sockfd)
         recv(sockfd, part2_name, part2_name_len,0);
         printf("file part names received!!!\n");
 
+        //Allocating appropriate memory for incoming file parts
+        file_part_1 = malloc(byte_len_1);
+        file_part_2 = malloc(byte_len_2);
+
         printf("Waiting to receive actual file parts....\n");
         recv(newSocket, file_part_1, byte_len_1, 0);
         recv(newSocket, file_part_2, byte_len_2, 0);
@@ -239,21 +235,17 @@ void put_file(char *file_name, int sockfd)
 
         printf("File part1 name is:%s\n", part1_name);
         printf("File part1 size is:%d\n", byte_len_1);
-        printf("File part1 contents is:%s\n", file_part_1);
+        // printf("File part1 contents is:%s\n", file_part_1);
 
         printf("File part2 name is:%s\n", part2_name);
         printf("File part2 size is:%d\n", byte_len_2);
-        printf("File part2 contents is:%s\n", file_part_2);
+        // printf("File part2 contents is:%s\n", file_part_2);
 
         //Putting the file in the user folder
-        memset(temp_buf, 0, 100);
-        strcpy(temp_buf, folder_cp);
+        memset(temp_buf, 0, 150);
+        strcpy(temp_buf, folder);
         strcat(temp_buf, part1_name);
 
-        // size = pathconf(".", _PC_PATH_MAX);
-        // if((buf = (char*)malloc(size)))
-        //     ptr = getcwd(buf, size);
-        // printf("Current pwd is:%s\n", ptr);
         fp_part1 = fopen(temp_buf, "w");
         if(fp_part1 == NULL)
         {
@@ -274,69 +266,15 @@ void put_file(char *file_name, int sockfd)
         }
         fwrite(file_part_2, 1, byte_len_2, fp_part2);
         fclose(fp_part2);
+
+        free(file_part_1);
+        free(file_part_2);
     }
     else
         printf("User credentials not correct. Try again\n");
-
 }
 
 
-void list(int sockfd)
-{
-    int flag = user_credentials_check();
-    // memset(buffer, 0, 1024);
-    //Storing directory contents in a buffer and sending the buffer
-    memset(folder_cp, 0, 100);
-    strcpy(folder_cp, folder);
-    strcat(folder_cp, "/");
-    strcat(folder_cp, req_username);
-    strcat(folder_cp, "/");
-
-    DIR *dp = NULL;
-    struct dirent *sd = NULL;
-
-    //Counting the number of files in the directory and sending it to client
-    dp = opendir((const char*)folder_cp);
-    while((sd = readdir(dp)) != NULL)
-    {
-        file_num++;
-    }
-    file_num = file_num - 2;    //removing count of the two hidden files
-    closedir(dp);
-    send(sockfd, &file_num, sizeof(int), 0);
-
-    dp = opendir((const char*)folder_cp);
-    while((sd = readdir(dp)) != NULL)
-    {
-        memset(buffer, 0, 1024);
-        if((strcmp(".", sd->d_name))== 0)
-        {
-            //Do nothing
-        }
-        else if((strcmp("..", sd->d_name)) == 0)
-        {
-            //Do nothing
-        }
-        else 
-        {
-            strcat(buffer, sd->d_name);
-            strcat(buffer, "\n");
-            string_len = strlen(buffer) + 1;
-
-            //Sending file part name lengths before sending file part
-            send(sockfd, &string_len, sizeof(int), 0);
-            
-            //Sending the file part name
-            send(sockfd, buffer, string_len, 0);
-            printf("Buffer contents:%s", buffer);
-
-        }
-    }
-    // printf("Buffer contents:%s", buffer);
-    //Sending file part name lengths before sending file part
-    // send(socket, &string_a_len, sizeof(int), 0);
-    // send(socket, &string_b_len, sizeof(int), 0);
-}
 
 int main(int argc, char const *argv[])
 {
@@ -352,10 +290,9 @@ int main(int argc, char const *argv[])
     cpy_2 = malloc(100);
     token = malloc(100);
     folder = malloc(100);
-    folder_cp = malloc(100);
-    temp_buf = malloc(100);
-    part1_name = malloc(100);
-    part2_name = malloc(100);
+    temp_buf = malloc(150);
+    part1_name = malloc(150);
+    part2_name = malloc(150);
     char* file_contents = NULL;
     FILE *fp = NULL;
 
@@ -437,24 +374,27 @@ int main(int argc, char const *argv[])
                         break;
                     }
                     printf("after send\n");
+
+                    // int flag = user_credentials_check();
                     put_file(file_name, newSocket);
                     // exit(1);
                 }
 
-                if(strstr(buffer, "list") != NULL)
+                if(strstr(buffer, "get") != NULL)
                 {
                     printf("Found command\n");
+                    strcpy(file_name, (buffer + 3));
                     memset(buffer,0, sizeof(buffer));
-                    strcpy(buffer, "Sending list");
+                    strcpy(buffer, "Sending file");
+                    strcat(buffer, file_name);
                     printf("Sending the following string: %s\n", buffer);
                     if(send(newSocket,buffer,1024,0) < 0)
                     {
                         perror("Send Error");
                         exit(0);
-                        break;
                     }
                     printf("after send\n");
-                    list(newSocket);
+                    // put_file(file_name, newSocket);
                     // exit(1);
                 }
                 // close(newSocket);
