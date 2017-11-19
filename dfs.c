@@ -110,6 +110,12 @@ char* config_file(char *string)
 int user_credentials_check(void)
 {
     int flag = 0;
+    memset(buffer, 0, 1024);
+    memset(recv_username, 0, 100);
+    memset(recv_password, 0, 100);
+    memset(req_password, 0, 100);
+    memset(req_username, 0, 100);
+    
     recv(newSocket,buffer,1024,0);
 
 /* ------User credentials check ----------*/
@@ -193,23 +199,6 @@ void put_file(char *file_name, int sockfd)
 
     if(flag == 1)
     {
-        // // Username folder creation
-        // strcat(folder, "/");
-        // strcat(folder, req_username);
-        // strcat(folder, "/");
-
-        // if(stat(folder, &st) == -1)
-        // {
-        //     mkdir(folder, 0700);
-        // }
-        // else
-        // {
-        //     printf("Username folder already exists\n");
-        //     printf("The folder path is:%s\n", folder);
-        // }
-
-        // memset(file_part_1, 0, 1024);
-        // memset(file_part_2, 0, 1024);
         memset(&byte_len_1, 0, 4);
         memset(&byte_len_2, 0, 4);
         memset(&part1_name_len, 0, 4);
@@ -386,10 +375,6 @@ void list(int sockfd)
             printf("Buffer contents:%s", buffer);
         }
     }
-    // printf("Buffer contents:%s", buffer);
-    //Sending file part name lengths before sending file part
-    // send(socket, &string_a_len, sizeof(int), 0);
-    // send(socket, &string_b_len, sizeof(int), 0);
 }
 
 

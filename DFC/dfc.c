@@ -62,10 +62,30 @@ char* subfolder = NULL;
 char *P[4];              /* Array of pointers to split file contents*/
 int file_num_1, file_num_2, file_num_3, file_num_4;
 int server_1_file_len, server_2_file_len, server_3_file_len, server_4_file_len;
+
 char* server_1_buf = NULL;
 char* server_2_buf = NULL;
 char* server_3_buf = NULL;
 char* server_4_buf = NULL;
+
+char* temp1 = NULL;
+char* temp2 = NULL;
+char* temp3 = NULL;
+char* temp4 = NULL;
+char* cpy_temp = NULL;
+char* final_buffer = NULL;
+
+char* list_filename = NULL;
+char* list_filename_temp = NULL;
+char* old_list_filename = NULL;
+char* tk1 = NULL;
+char* a = NULL;
+char* part1 = NULL;
+char* part2 = NULL;
+
+
+char* saveptr = NULL;
+char* saveptr_1 = NULL;
 
 
 void signal_handler(int signum)
@@ -141,7 +161,7 @@ unsigned int MD5HASH(FILE *fp)
     }
     mask = 0;
     mask = md5_mask[0];
-    printf("Mask is %d\n",mask);
+    // printf("Mask is %d\n",mask);
     return mask;
 }
 
@@ -390,7 +410,7 @@ void put_file(char *data_file_name, char* subfolder)
        exit(1);
     }   
     // printf("Return value is %d\n", MD5HASH(fp));
-    printf("Getting mod value of MD5SUM....\n");
+    // printf("Getting mod value of MD5SUM....\n");
     x = MD5HASH(fp) % 4;
     printf("x is %d\n",x);
     fclose(fp);
@@ -533,6 +553,8 @@ void user_credentials(void)
 
 void list(void)
 {
+    int i;
+    int flag[4] = {0};
     // printf("Waiting for file part name lengths...\n");
     printf("In list function\n");
     
@@ -611,6 +633,131 @@ void list(void)
     printf("\n");
 
     
+    tk1 = malloc(strlen(server_1_buf) + 1);
+    strcpy(temp1, server_1_buf);
+    strcpy(temp2, server_2_buf);
+    strcpy(temp3, server_3_buf);
+    strcpy(temp4, server_4_buf);
+    
+    
+    //Replacing all the '\n' chars with '!' for strstr()
+    i = 0;
+    while(temp1[i] != '\0')
+    {
+        if(temp1[i] == '\n')
+        {
+            // printf("Remove1\n");
+            temp1[i] = '!';
+        }
+        i++;
+    }
+
+    i = 0;
+    while(temp2[i] != '\0')
+    {
+        if(temp2[i] == '\n')
+        {
+            // printf("Remove\n");
+            temp2[i] = '!';
+        }
+        i++;
+    }
+
+    i = 0;
+    while(temp3[i] != '\0')
+    {
+        if(temp3[i] == '\n')
+        {
+            // printf("Remove\n");
+            temp3[i] = '!';
+        }
+        i++;
+    }
+
+    i = 0;
+    while(temp4[i] != '\0')
+    {
+        if(temp4[i] == '\n')
+        {
+            // printf("Remove\n");
+            temp4[i] = '!';
+        }
+        i++;
+    }
+
+    tk1 = strtok_r(server_1_buf, "\n", &saveptr);
+    while(tk1 != NULL)
+    {   
+        // memset(filename, 0, 1024);
+        printf("\nCurrent token is:%s", tk1);
+        part1 = strtok_r(tk1, ".", &saveptr_1);
+        part2 = strtok_r(NULL, ".", &saveptr_1);
+
+        sprintf(list_filename, "%s.%s", part1, part2);
+        
+        printf("\nparts:%s",list_filename);
+        printf("\nValue of strcmp is:%d\n", strcmp(old_list_filename, list_filename));
+
+        if(strcmp(old_list_filename, list_filename) == 0)
+        {   
+            printf("Prsed file same as old\n");
+            memset(list_filename, 0, 1024);
+            tk1 = strtok_r(NULL, "\n", &saveptr);
+            continue;
+        }
+        else
+        {
+            printf("New file\n");
+            memset(old_list_filename, 0, 200);
+        }
+
+        for(i = 0; i < 4; i++)
+        {
+            // printf("\n\n");
+            memset(cpy_temp, 0, 1024);
+            // strcpy(temp3, ".");
+            memset(a, 0, 2);
+
+            memset(list_filename_temp, 0, 200);
+            strcpy(list_filename_temp, list_filename);
+            sprintf(a,".%d", i+1);
+            strcat(list_filename_temp, a);
+            strcat(cpy_temp, list_filename_temp);
+            printf("\nTemp file is:%s", cpy_temp);
+            
+            if(strstr(temp1, cpy_temp) || strstr(temp2, cpy_temp) || strstr(temp3, cpy_temp) || strstr(temp4, cpy_temp))
+            {
+                // printf("File found\n");
+                flag[i] = 1;
+            }
+            else
+            {
+                // printf("File not found\n");
+                flag[i] = 0;
+            }
+        }
+
+        if(flag[0] == 0 || flag[1] == 0 || flag[2] == 0 || flag[3] == 0)
+        {
+            printf("File '%s' is Incomplete\n", list_filename);
+            strcat(final_buffer, list_filename);
+            strcat(final_buffer, "\t\tIncomplete");
+            // sprintf(final_buffer, "\n%s\t%s", filename, "\tIncomplete");
+        }
+        else
+        {
+            strcat(final_buffer, list_filename);
+            strcat(final_buffer, "\n");
+        }
+
+        strcpy(old_list_filename, list_filename);
+        printf("\nOld file is:%s\n", old_list_filename);
+        tk1 = strtok_r(NULL, "\n", &saveptr);
+    }
+    printf("Final buffer:\n%s", final_buffer);
+
+    free(tk1);
+    
 }
 
 
@@ -641,6 +788,27 @@ int main(int argc, char const *argv[])
     server_2_buf = malloc(1024);
     server_3_buf = malloc(1024);
     server_4_buf = malloc(1024);
+
+    temp1 = malloc(1024);
+    temp2 = malloc(1024);
+    temp3 = malloc(1024);
+    temp4 = malloc(1024);
+    cpy_temp = malloc(1024);
+
+    list_filename = malloc(200);
+    list_filename_temp = malloc(200);
+    old_list_filename = malloc(200);
+    a = malloc(2);
+    
+    saveptr = malloc(100);
+    saveptr_1 = malloc(100);
+
+    part1 = malloc(100);
+    part2 = malloc(500);
+
+    final_buffer = malloc(1024);
+
+
     for (i = 0; i < 4; ++i)
     {
         PORTS[i] = (char*)malloc(10);
