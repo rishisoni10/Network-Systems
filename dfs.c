@@ -328,13 +328,47 @@ void put_file(char *file_name, int sockfd)
 void list(int sockfd)
 {
     int flag = user_credentials_check();
+    int sub_flag, sub_len;
     // memset(buffer, 0, 1024);
-    //Storing directory contents in a buffer and sending the buffer
+
+    //Receiving subfolder confirmationa
+    recv(sockfd, &sub_ACK, 4, 0);
+    recv(newSocket, subfolder_ACK, sub_ACK, 0);
+    if(strcmp(subfolder_ACK, "1") == 0)
+    {
+        sub_flag = 1;
+        recv(newSocket, &sub_len, 4, 0);
+        recv(newSocket, subfolder, sub_len, 0);
+        memset(temp_buf, 0, 200);
+    }
+    else if(strcmp(subfolder_ACK, "0") == 0)
+    {
+        sub_flag = 0;
+        printf("No SUBFOLDER FOUND!!!!!!!!!!!!!!!!!!\n");
+        //Putting the file in the user folder
+        memset(temp_buf, 0, 200);
+    }
+
     memset(folder_cp, 0, 100);
     strcpy(folder_cp, folder);
     strcat(folder_cp, "/");
     strcat(folder_cp, req_username);
     strcat(folder_cp, "/");
+    if(sub_flag == 1)
+    {
+        strcat(subfolder, "/");
+        strcat(folder_cp, subfolder);
+        // strcpy(temp_buf, folder);
+        // strcat(temp_buf, part1_name);
+        printf("New path is:%s\n", folder_cp);
+    }
+
+    else if(sub_flag == 0)
+    {
+    //     strcpy(temp_buf, folder);
+    //     strcat(temp_buf, part1_name);
+        printf("Old path is:%s\n", temp_buf);
+    }
 
     DIR *dp = NULL;
     struct dirent *sd = NULL;
@@ -347,6 +381,8 @@ void list(int sockfd)
     }
     file_num = file_num - 2;    //removing count of the two hidden files
     closedir(dp);
+
+    //Sending number of files in the requested folder
     send(sockfd, &file_num, sizeof(int), 0);
 
     dp = opendir((const char*)folder_cp);
@@ -358,6 +394,10 @@ void list(int sockfd)
             //Do nothing
         }
         else if((strcmp("..", sd->d_name)) == 0)
+        {
+            //Do nothing
+        }
+        else if(sd->d_type == DT_DIR)   //Is directory
         {
             //Do nothing
         }
@@ -488,7 +528,7 @@ int main(int argc, char const *argv[])
                 if(strstr(buffer, "list") != NULL)
                 {
                     printf("Found command\n");
-                    strcpy(file_name, (buffer + 3));
+                    strcpy(file_name, (buffer + 4));
                     memset(buffer,0, sizeof(buffer));
                     strcpy(buffer, "Sending list");
                     strcat(buffer, file_name);

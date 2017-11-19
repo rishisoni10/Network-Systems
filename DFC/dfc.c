@@ -132,6 +132,40 @@ char* config_file(char *string)
     return tk;
 }
 
+void user_credentials(void)
+{
+    memset(username, 0, 100);
+    memset(password, 0, 100);
+    printf("\nSending user credentials....\n");
+    strcpy(username, config_file("Username"));
+    strcpy(password, config_file("Password"));
+    strcat(username, ",");
+    strcat(username, password);
+
+    /*---- Send user credentials from client to all servers ----*/
+    send(clientSocket[0],username,strlen(username)+1,0);
+    send(clientSocket[1],username,strlen(username)+1,0);
+    send(clientSocket[2],username,strlen(username)+1,0);
+    send(clientSocket[3],username,strlen(username)+1,0);
+
+    /*---- Receive confirmation of user credentials from all servers ----*/
+    printf("Waiting to receive confirmation..,...\n");
+    recv(clientSocket[0], &reply[0], 1, 0);
+    recv(clientSocket[1], &reply[1], 1, 0);
+    recv(clientSocket[2], &reply[2], 1, 0);
+    recv(clientSocket[3], &reply[3], 1, 0);
+    
+    if(reply[0] == '0' && reply[1] == '0' && reply[2] == '0'&& reply[3] == '0')
+    {
+        printf("User credentials wrong\n");
+        exit(1);
+    }
+    else if(reply[0] == '1' && reply[1] == '1'&& reply[2] == '1' && reply[3] == '1')
+        printf("User credentials correct\n");
+    else
+        printf("No reply from server\n");
+}
+
 unsigned int MD5HASH(FILE *fp)
 {
     int i, bytes;
@@ -516,44 +550,9 @@ void put_file(char *data_file_name, char* subfolder)
 }
 
 
-
-void user_credentials(void)
+void list(char* subfolder)
 {
-    memset(username, 0, 100);
-    memset(password, 0, 100);
-    printf("\nSending user credentials....\n");
-    strcpy(username, config_file("Username"));
-    strcpy(password, config_file("Password"));
-    strcat(username, ",");
-    strcat(username, password);
-
-    /*---- Send user credentials from client to all servers ----*/
-    send(clientSocket[0],username,strlen(username)+1,0);
-    send(clientSocket[1],username,strlen(username)+1,0);
-    send(clientSocket[2],username,strlen(username)+1,0);
-    send(clientSocket[3],username,strlen(username)+1,0);
-
-    /*---- Receive confirmation of user credentials from all servers ----*/
-    printf("Waiting to receive confirmation..,...\n");
-    recv(clientSocket[0], &reply[0], 1, 0);
-    recv(clientSocket[1], &reply[1], 1, 0);
-    recv(clientSocket[2], &reply[2], 1, 0);
-    recv(clientSocket[3], &reply[3], 1, 0);
-    
-    if(reply[0] == '0' && reply[1] == '0' && reply[2] == '0'&& reply[3] == '0')
-    {
-        printf("User credentials wrong\n");
-        exit(1);
-    }
-    else if(reply[0] == '1' && reply[1] == '1'&& reply[2] == '1' && reply[3] == '1')
-        printf("User credentials correct\n");
-    else
-        printf("No reply from server\n");
-}
-
-void list(void)
-{
-    int i;
+    int i, sub_len;
     int flag[4] = {0};
     // printf("Waiting for file part name lengths...\n");
     printf("In list function\n");
@@ -567,6 +566,56 @@ void list(void)
     memset(buffer_2, 0, 1024);
     memset(buffer_3, 0, 1024);
     memset(buffer_4, 0, 1024);
+
+    //Listing subfolder
+    if(subfolder == NULL)
+    {
+        printf("subfolder is NULLLLLLLLL\n");
+        no_sub = 2;
+
+        //Sending size of NACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending NACK of subfolder
+        send(clientSocket[0],"0",no_sub,0);
+        send(clientSocket[1],"0",no_sub,0);
+        send(clientSocket[2],"0",no_sub,0);
+        send(clientSocket[3],"0",no_sub,0);
+
+    }
+    else
+    {
+        printf("subfolder is %s\n", subfolder);
+        no_sub = 2;
+        //Sending size of ACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending ACK of subfolder
+        send(clientSocket[0],"1",no_sub,0);
+        send(clientSocket[1],"1",no_sub,0);
+        send(clientSocket[2],"1",no_sub,0);
+        send(clientSocket[3],"1",no_sub,0);
+
+        //Sending subfolder length
+        sub_len = strlen(subfolder) + 1;
+        send(clientSocket[0], &sub_len, 4, 0);
+        send(clientSocket[1], &sub_len, 4, 0);
+        send(clientSocket[2], &sub_len, 4, 0);
+        send(clientSocket[3], &sub_len, 4, 0);
+
+        //Sending subfolder name string
+        send(clientSocket[0], subfolder, sub_len, 0);
+        send(clientSocket[1], subfolder, sub_len, 0);
+        send(clientSocket[2], subfolder, sub_len, 0);
+        send(clientSocket[3], subfolder, sub_len, 0);
+    }
+
     
     //Receiving the number of files in each server
     recv(clientSocket[0], &file_num_1, sizeof(int), 0);
@@ -758,6 +807,7 @@ void list(void)
 
     free(tk1);
     
+    
 }
 
 
@@ -894,6 +944,7 @@ int main(int argc, char const *argv[])
         else
             printf("No. of bytes received:%d\n", receiving);
 
+
         printf("Command received is %s\n", command_2);
 
         if(strstr(command_2, "Send file"))
@@ -916,8 +967,10 @@ int main(int argc, char const *argv[])
         if(strstr(command_2, "Sending list"))
         {
             printf("List command found\n");
+            strcpy(subfolder, (command_2 + 13));
+            printf("Subfolder in main:%s\n", subfolder);
             user_credentials();
-            list();
+            list(subfolder);
         }
     }
     
