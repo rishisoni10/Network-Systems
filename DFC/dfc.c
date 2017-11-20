@@ -585,7 +585,6 @@ void list(char* subfolder)
         send(clientSocket[1],"0",no_sub,0);
         send(clientSocket[2],"0",no_sub,0);
         send(clientSocket[3],"0",no_sub,0);
-
     }
     else
     {
@@ -617,6 +616,13 @@ void list(char* subfolder)
         send(clientSocket[3], subfolder, sub_len, 0);
     }
 
+    //Sync bytes
+    send(clientSocket[0],"0",no_sub,0);
+    send(clientSocket[1],"0",no_sub,0);
+    send(clientSocket[2],"0",no_sub,0);
+    send(clientSocket[3],"0",no_sub,0);
+
+    printf("Waiting before recv\n");
     
     //Receiving the number of files in each server
     recv(clientSocket[0], &file_num_1, sizeof(int), 0);
@@ -736,6 +742,8 @@ void list(char* subfolder)
     }
 
     tk1 = strtok_r(server_1_buf, "\n", &saveptr);
+    memset(old_list_filename, 0, 1024);
+
     while(tk1 != NULL)
     {   
         // memset(filename, 0, 1024);
@@ -751,7 +759,8 @@ void list(char* subfolder)
         if(strcmp(old_list_filename, list_filename) == 0)
         {   
             printf("Prsed file same as old\n");
-            memset(list_filename, 0, 1024);
+            // memset(list_filename, 0, 1024);
+            // memset(old_list_filename, 0, 1024);
             tk1 = strtok_r(NULL, "\n", &saveptr);
             continue;
         }
@@ -1103,6 +1112,8 @@ void get_file(char* data_file_name, char* subfolder)
 
 
 
+
+
 int main(int argc, char const *argv[])
 {
     int len;
@@ -1285,6 +1296,21 @@ int main(int argc, char const *argv[])
             printf("Data file name is:%s\n", data_file_name);
             user_credentials();
             get_file(data_file_name, subfolder);
+        }
+
+        if(strstr(command_2, "Send subfolder"))
+        {
+            printf("MKDIR command found\n");
+            strcpy(subfolder, (command_2 + 14));
+
+            if(strcmp(subfolder, "\0") == 0)
+            {
+                printf("subfolder is string ending\n");
+                subfolder = NULL;
+            }
+            printf("Subfolder in main:%s\n", subfolder);
+            user_credentials();
+            // mkdir_folder(subfolder);
         }
 
     }

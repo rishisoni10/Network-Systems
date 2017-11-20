@@ -128,8 +128,11 @@ int user_credentials_check(void)
     printf("Received Password:%s\n", recv_password);
 
     fp = fopen("dfs.conf", "r");
-    file_contents = malloc(file_size(fp));
-    fread(file_contents, 1, file_size(fp), fp);
+    int len = file_size(fp);
+    file_contents = malloc(len);
+    fread(file_contents, 1, len, fp);
+    fclose(fp);
+
     printf("file contents:%s\n", file_contents);
 
     if((cpy_1 = strstr(file_contents, recv_username)) != NULL)
@@ -178,6 +181,7 @@ int user_credentials_check(void)
         send(newSocket,&ACK,1,0);
         return flag;
     }
+    free(file_contents);
 }
 
 /**
@@ -198,6 +202,7 @@ void put_file(char *file_name, int sockfd)
     FILE* fp_part1 = NULL;
     FILE* fp_part2 = NULL;
     int sub_len, sub_flag;
+    char folder_tmp_buf[150];
 
     if(flag == 1)
     {
@@ -262,39 +267,41 @@ void put_file(char *file_name, int sockfd)
         }
 
         //Username folder + subfolder creation
-        strcat(folder, "/");
-        strcat(folder, req_username);
-        strcat(folder, "/");
+        memset(folder_tmp_buf, 0, 150);
+        strcpy(folder_tmp_buf, folder);
+        strcat(folder_tmp_buf, "/");
+        strcat(folder_tmp_buf, req_username);
+        strcat(folder_tmp_buf, "/");
         if(sub_flag == 1)
         {
             strcat(subfolder, "/");
-            strcat(folder, subfolder);
+            strcat(folder_tmp_buf, subfolder);
             if(stat(folder, &st) == -1)
             {
-                mkdir(folder, 0700);
+                mkdir(folder_tmp_buf, 0700);
             }
             else
             {
                 printf("Username folder & subfolder already exists\n");
-                printf("The folder path is:%s\n", folder);
+                printf("The folder path is:%s\n", folder_tmp_buf);
             }
-            strcpy(temp_buf, folder);
+            strcpy(temp_buf, folder_tmp_buf);
             strcat(temp_buf, part1_name);
             printf("New path is:%s\n", temp_buf);
         }
 
         else if(sub_flag == 0)
         {
-            if(stat(folder, &st) == -1)
+            if(stat(folder_tmp_buf, &st) == -1)
             {
-                mkdir(folder, 0700);
+                mkdir(folder_tmp_buf, 0700);
             }
             else
             {
                 printf("Username folder already exists\n");
                 printf("The folder path is:%s\n", folder);
             }
-            strcpy(temp_buf, folder);
+            strcpy(temp_buf, folder_tmp_buf);
             strcat(temp_buf, part1_name);
             printf("New path is:%s\n", temp_buf);
         }
@@ -332,6 +339,7 @@ void list(int sockfd)
     int flag = user_credentials_check();
     int sub_flag, sub_len;
     // memset(buffer, 0, 1024);
+    memset(subfolder_ACK, 0, 5);
 
     //Receiving subfolder confirmationa
     recv(sockfd, &sub_ACK, 4, 0);
@@ -341,21 +349,23 @@ void list(int sockfd)
         sub_flag = 1;
         recv(newSocket, &sub_len, 4, 0);
         recv(newSocket, subfolder, sub_len, 0);
-        memset(temp_buf, 0, 200);
     }
+
     else if(strcmp(subfolder_ACK, "0") == 0)
     {
         sub_flag = 0;
         printf("No SUBFOLDER FOUND!!!!!!!!!!!!!!!!!!\n");
         //Putting the file in the user folder
-        memset(temp_buf, 0, 200);
     }
+
+    memset(temp_buf, 0, 200);
 
     memset(folder_cp, 0, 100);
     strcpy(folder_cp, folder);
     strcat(folder_cp, "/");
     strcat(folder_cp, req_username);
     strcat(folder_cp, "/");
+
     if(sub_flag == 1)
     {
         strcat(subfolder, "/");
@@ -367,10 +377,12 @@ void list(int sockfd)
 
     else if(sub_flag == 0)
     {
-    //     strcpy(temp_buf, folder);
-    //     strcat(temp_buf, part1_name);
-        printf("Old path is:%s\n", temp_buf);
+        printf("Old path is:%s\n", folder_cp);
     }
+
+    memset(subfolder_ACK, 0, 5);
+    //Sync bytes
+    recv(sockfd, subfolder_ACK, 2, 0);
 
     DIR *dp = NULL;
     struct dirent *sd = NULL;
@@ -566,6 +578,46 @@ void get_file(char* file_name, int sockfd)
     }    
 }
 
+void mkdir_folder(char *subfolder)
+{
+    int flag = user_credentials_check();
+    char* tk;
+    char folder_tmp_buf[150];
+    tk = strtok(subfolder, " /");
+    printf("the required buffer is:%s\n",tk);
+    struct stat st = {0};
+    char new_buf[1024];
+
+    if(subfolder == NULL)
+    {
+        printf("Enter subfolder name again\n");
+        return;
+    }
+    else
+    {
+        memset(folder_tmp_buf, 0, 150);
+        strcpy(folder_tmp_buf, folder);
+        strcat(folder_tmp_buf, "/");
+        strcat(folder_tmp_buf, req_username);
+        strcat(folder_tmp_buf, "/");
+
+        strcpy(new_buf, folder_tmp_buf);
+        strcat(new_buf, tk);
+        strcat(new_buf, "/");
+
+        if(stat(new_buf, &st) == -1)
+        {
+            mkdir(new_buf, 0700);
+        }
+        else
+        {
+            printf("Username folder & subfolder already exists\n");
+            printf("The folder path is:%s\n", new_buf);
+        }
+
+    }
+    
+}
 
 
 int main(int argc, char const *argv[])
@@ -644,6 +696,7 @@ int main(int argc, char const *argv[])
             {
                 printf("Before recv function\n");
                 // close(welcomeSocket);   //child closes listening socket
+                memset(buffer, 0, 1024);
                 ret = recv(newSocket,buffer,1024,0);
                 if(ret == 0 || ret < 0)
                 {
@@ -705,6 +758,25 @@ int main(int argc, char const *argv[])
                     printf("after send\n");
                     get_file(file_name, newSocket);
                 }
+
+                if(strstr(buffer, "mkdir") != NULL)
+                {
+                    printf("Found command\n");
+                    strcpy(file_name, (buffer + 5));
+                    memset(buffer,0, sizeof(buffer));
+                    strcpy(buffer, "Send subfolder");
+                    strcat(buffer, file_name);
+                    printf("Sending the following string: %s\n", buffer);
+                    if(send(newSocket,buffer,1024,0) < 0)
+                    {
+                        perror("Send Error");
+                        exit(0);
+                        break;
+                    }
+                    printf("after send\n");
+                    mkdir_folder(file_name);
+                }
+
 
             }
             printf("After child exit\n");
