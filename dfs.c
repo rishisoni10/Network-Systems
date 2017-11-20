@@ -10,7 +10,7 @@
 * Command to run: make run
 *
 * @author Rishi Soni
-* @date November 12 2017
+* @date November 18 2017
 * @version 1.0
 *
 */
@@ -73,7 +73,9 @@ char* ptr = NULL;
 size_t size;
 
 int string_len;
-// int tmpSocket[NUM_CLIENTS];
+char tmp_buf[1024];
+
+char* data_send_buf = NULL;
 
 int file_size(FILE *file_fp)
 {
@@ -415,7 +417,155 @@ void list(int sockfd)
             printf("Buffer contents:%s", buffer);
         }
     }
+    closedir(dp);
+
 }
+
+void get_file(char* file_name, int sockfd)
+{
+    int flag = user_credentials_check();
+    int sub_flag, sub_len, i, len, j;
+    char get_ACK[5];
+    int get_ACK_len;
+    char a[2];
+    char folder_tmp_buf[150];
+    FILE* fp_part;
+    printf("GET FILE FUNCTION\n");
+    //Receiving subfolder confirmationa
+    recv(sockfd, &sub_ACK, 4, 0);
+    recv(newSocket, subfolder_ACK, sub_ACK, 0);
+
+    if(strcmp(subfolder_ACK, "1") == 0)
+    {
+        sub_flag = 1;
+        recv(newSocket, &sub_len, 4, 0);
+        recv(newSocket, subfolder, sub_len, 0);
+        memset(temp_buf, 0, 200);
+    }
+    else if(strcmp(subfolder_ACK, "0") == 0)
+    {
+        sub_flag = 0;
+        printf("No SUBFOLDER FOUND!!!!!!!!!!!!!!!!!!\n");
+        //Putting the file in the user folder
+        memset(temp_buf, 0, 200);
+    }
+
+    memset(folder_cp, 0, 100);
+    strcpy(folder_cp, folder);
+    strcat(folder_cp, "/");
+    strcat(folder_cp, req_username);
+    strcat(folder_cp, "/");
+
+    if(sub_flag == 1)
+    {
+        strcat(subfolder, "/");
+        strcat(folder_cp, subfolder);
+        printf("New path is:%s\n", folder_cp);
+    }
+
+    else if(sub_flag == 0)
+    {
+        printf("Old path is:%s\n", folder_cp);
+    }
+
+    char* tk1;
+    tk1 = strtok(file_name, " ");
+    printf("File required:%s\n", tk1);
+    //Finding all the file parts and sending them 
+    DIR *dp = NULL;
+    struct dirent *sd = NULL;
+    dp = opendir((const char*)folder_cp);
+    while((sd = readdir(dp)) != NULL)
+    {
+        // printf("part name here is:%s\n", sd->d_name);
+        // memset(buffer, 0, 1024);
+        if((strcmp(".", sd->d_name))== 0)
+        {
+            //Do nothing
+        }
+        else if((strcmp("..", sd->d_name)) == 0)
+        {
+            //Do nothing
+        }
+        else if(sd->d_type == DT_DIR)   //Is directory
+        {
+            //Do nothing
+        }
+        else if(strstr(sd->d_name, tk1))
+        {
+            printf("Found file part:%s",sd->d_name);
+            printf("\n");
+
+            string_len = strlen(sd->d_name);
+            send(sockfd, &string_len, sizeof(int), 0);
+            send(sockfd, sd->d_name+1, string_len, 0);
+        }
+    }
+    closedir(dp);
+
+    memset(folder_tmp_buf, 0, 150);
+    memset(subfolder_ACK, 0, 5);
+
+    for(i = 1; i < 5; i++)
+    {
+        memset(get_ACK, 0, 5);
+        recv(sockfd, &get_ACK_len, 4, 0);             //Length of ACK / NACK
+        recv(sockfd, get_ACK, get_ACK_len, 0);        // ACK / NACK from client
+        printf("Received ACK is:%s\n", get_ACK);
+        if(strcmp(get_ACK, "1") == 0)
+        {
+            recv(sockfd, &j, 4, 0);         //Receive the suffix of the part name to be sent
+            memset(a, 0, 2);
+            memset(tmp_buf, 0, 1024);
+            
+            sprintf(a, ".%d", j);
+            strcpy(tmp_buf, ".");
+            strcat(tmp_buf, tk1);
+            strcat(tmp_buf, a);
+            strcpy(folder_tmp_buf, folder_cp);
+            
+            dp = opendir((const char*)folder_cp);
+            while((sd = readdir(dp)) != NULL)
+            {
+                if(strcmp(sd->d_name, tmp_buf) == 0)
+                {
+                    strcat(folder_tmp_buf, tmp_buf);
+                    printf("Found file part in search:%s",tmp_buf);
+                    printf("\n");
+                    // strcat(tmp_buf, folder_cp);
+                    printf("before fopen\n");
+                    fp_part = fopen(folder_tmp_buf, "r");
+                    printf("After fopen\n");
+                    if(fp_part == NULL)
+                        printf("File does not exist:%s", tmp_buf);
+                    else
+                        printf("File exists\n");
+
+                    len = file_size(fp_part);
+                    // fclose(fp_part);
+                    printf("part len is:%d\n", len);
+                    send(sockfd, &len, sizeof(int), 0);
+
+                    data_send_buf = malloc(len);
+                    fread(data_send_buf, 1, len, fp_part);
+
+                    send(sockfd, data_send_buf, len, 0);
+                    fclose(fp_part);
+                    free(data_send_buf);
+                }
+
+            }
+            closedir(dp);
+        }
+        else if(strcmp(get_ACK, "0") == 0)
+        {
+            printf("File not found\n");
+            // continue;
+        }
+
+    }    
+}
+
 
 
 int main(int argc, char const *argv[])
@@ -438,8 +588,6 @@ int main(int argc, char const *argv[])
     part1_name = malloc(150);
     part2_name = malloc(150);
     subfolder_ACK = malloc(5);
-    char* file_contents = NULL;
-    FILE *fp = NULL;
 
     /*---- Create the socket. The three arguments are: ----*/
     welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -520,9 +668,7 @@ int main(int argc, char const *argv[])
                     }
                     printf("after send\n");
 
-                    // int flag = user_credentials_check();
                     put_file(file_name, newSocket);
-                    // exit(1);
                 }
 
                 if(strstr(buffer, "list") != NULL)
@@ -540,11 +686,26 @@ int main(int argc, char const *argv[])
                     }
                     printf("after send\n");
                     list(newSocket);
-                    // put_file(file_name, newSocket);
-                    // exit(1);
                 }
-                // close(newSocket);
-                // exit(0);
+
+                if(strstr(buffer, "get") != NULL)
+                {
+                    printf("Found command\n");
+                    strcpy(file_name, (buffer + 3));
+                    memset(buffer,0, sizeof(buffer));
+                    strcpy(buffer, "Sending files");
+                    strcat(buffer, file_name);
+                    printf("Sending the following string: %s\n", buffer);
+                    if(send(newSocket,buffer,1024,0) < 0)
+                    {
+                        perror("Send Error");
+                        exit(0);
+                        break;
+                    }
+                    printf("after send\n");
+                    get_file(file_name, newSocket);
+                }
+
             }
             printf("After child exit\n");
         }

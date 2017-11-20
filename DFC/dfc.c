@@ -10,7 +10,7 @@
 * Command to run: make run
 *
 * @author Rishi Soni
-* @date November 12 2017
+* @date November 18 2017
 * @version 1.0
 *
 */
@@ -35,7 +35,6 @@
 #define FILENAME_LEN        (50)
 
 
-
 // void put_file(char*, char*);
 int no_sub;
 int errsv = 0;
@@ -53,7 +52,7 @@ int file_part_len[4];
 int clientSocket[4];     /* Array of socket descriptors for 4 connections*/
 struct sockaddr_in serverAddr[4];
 
-char buffer[1024], buffer_1[1024], buffer_2[1024], buffer_3[1024], buffer_4[1024];
+char buffer[1024], buffer_1[1024], buffer_2[1024], buffer_3[1024], buffer_4[1024], get_buffer[1024];
 socklen_t addr_size;
 char* username = NULL;
 char* password = NULL;
@@ -87,6 +86,8 @@ char* part2 = NULL;
 char* saveptr = NULL;
 char* saveptr_1 = NULL;
 
+char *recv_file_names[4];   /* Array of string pointers for get file names*/
+char recv1_file_names[1024], recv2_file_names[1024], recv3_file_names[1024], recv4_file_names[1024];
 
 void signal_handler(int signum)
 {
@@ -675,10 +676,10 @@ void list(char* subfolder)
         }
     }
     printf("file part names received!!!\n");
-    printf("Server 1 file:%s", server_1_buf);
-    printf("Server 2 file:%s", server_2_buf);
-    printf("Server 3 file:%s", server_3_buf);
-    printf("Server 4 file:%s", server_4_buf);
+    // printf("Server 1 file:%s", server_1_buf);
+    // printf("Server 2 file:%s", server_2_buf);
+    // printf("Server 3 file:%s", server_3_buf);
+    // printf("Server 4 file:%s", server_4_buf);
     printf("\n");
 
     
@@ -738,14 +739,14 @@ void list(char* subfolder)
     while(tk1 != NULL)
     {   
         // memset(filename, 0, 1024);
-        printf("\nCurrent token is:%s", tk1);
+        // printf("\nCurrent token is:%s", tk1);
         part1 = strtok_r(tk1, ".", &saveptr_1);
         part2 = strtok_r(NULL, ".", &saveptr_1);
 
         sprintf(list_filename, "%s.%s", part1, part2);
         
-        printf("\nparts:%s",list_filename);
-        printf("\nValue of strcmp is:%d\n", strcmp(old_list_filename, list_filename));
+        // printf("\nparts:%s",list_filename);
+        // printf("\nValue of strcmp is:%d\n", strcmp(old_list_filename, list_filename));
 
         if(strcmp(old_list_filename, list_filename) == 0)
         {   
@@ -772,7 +773,7 @@ void list(char* subfolder)
             sprintf(a,".%d", i+1);
             strcat(list_filename_temp, a);
             strcat(cpy_temp, list_filename_temp);
-            printf("\nTemp file is:%s", cpy_temp);
+            // printf("\nTemp file is:%s", cpy_temp);
             
             if(strstr(temp1, cpy_temp) || strstr(temp2, cpy_temp) || strstr(temp3, cpy_temp) || strstr(temp4, cpy_temp))
             {
@@ -806,9 +807,300 @@ void list(char* subfolder)
     printf("Final buffer:\n%s", final_buffer);
 
     free(tk1);
-    
-    
 }
+
+void get_file(char* data_file_name, char* subfolder)
+{
+    int sub_len, i;
+    int part1_name_len, part2_name_len;
+    char temp_buf[1024];
+    char a[2];
+    char get_ACK[5];
+    int get_ACK_len;
+    FILE *fp;
+
+    //Get subfolder: sending info to server
+    if(subfolder == NULL)
+    {
+        printf("subfolder is NULLLLLLLLL\n");
+        no_sub = 2;
+
+        //Sending size of NACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending NACK of subfolder
+        send(clientSocket[0],"0",no_sub,0);
+        send(clientSocket[1],"0",no_sub,0);
+        send(clientSocket[2],"0",no_sub,0);
+        send(clientSocket[3],"0",no_sub,0);
+
+    }
+    else
+    {
+        printf("subfolder is %s\n", subfolder);
+        no_sub = 2;
+        //Sending size of ACK packet
+        send(clientSocket[0],&no_sub,4,0);
+        send(clientSocket[1],&no_sub,4,0);
+        send(clientSocket[2],&no_sub,4,0);
+        send(clientSocket[3],&no_sub,4,0);
+        
+        //Sending ACK of subfolder
+        send(clientSocket[0],"1",no_sub,0);
+        send(clientSocket[1],"1",no_sub,0);
+        send(clientSocket[2],"1",no_sub,0);
+        send(clientSocket[3],"1",no_sub,0);
+
+        //Sending subfolder length
+        sub_len = strlen(subfolder) + 1;
+        send(clientSocket[0], &sub_len, 4, 0);
+        send(clientSocket[1], &sub_len, 4, 0);
+        send(clientSocket[2], &sub_len, 4, 0);
+        send(clientSocket[3], &sub_len, 4, 0);
+
+        //Sending subfolder name string
+        send(clientSocket[0], subfolder, sub_len, 0);
+        send(clientSocket[1], subfolder, sub_len, 0);
+        send(clientSocket[2], subfolder, sub_len, 0);
+        send(clientSocket[3], subfolder, sub_len, 0);
+    }
+    memset(recv1_file_names, 0, 1024);
+    memset(recv2_file_names, 0, 1024);
+    memset(recv3_file_names, 0, 1024);
+    memset(recv4_file_names, 0, 1024);
+
+    memset(buffer_1, 0, 1024);
+    memset(buffer_2, 0, 1024);
+    memset(buffer_3, 0, 1024);
+    memset(buffer_4, 0, 1024);
+    printf("Waiting to receive file part name lengths...\n");
+    
+    char* old_get_filename1 = malloc(100);
+    char* old_get_filename2 = malloc(100);
+
+    memset(a, 0, 2);
+    memset(temp_buf, 0, 1024);
+    // sprintf(a, ".%d", i);
+    // strcpy(temp_buf, data_file_name);
+    // strcat(temp_buf, a);
+
+    //Server 1
+    recv(clientSocket[0], &part1_name_len, 4, 0);
+    recv(clientSocket[0], buffer_1, part1_name_len, 0);
+    strcat(buffer_1, "!");
+    strcat(recv1_file_names, buffer_1);
+    memset(buffer_1, 0, 1024);
+
+    recv(clientSocket[0], &part2_name_len, 4, 0);
+    recv(clientSocket[0], buffer_1, part2_name_len, 0);
+    strcat(buffer_1, "!");
+    strcat(recv1_file_names, buffer_1);
+    memset(buffer_1, 0, 1024);
+    printf("Server 1:%s\n", recv1_file_names);
+
+    //Server 2
+    recv(clientSocket[1], &part1_name_len, 4, 0);
+    recv(clientSocket[1], buffer_2, part1_name_len, 0);
+    strcat(buffer_2, "!");
+    strcat(recv2_file_names, buffer_2);
+    memset(buffer_2, 0, 1024);
+
+    recv(clientSocket[1], &part2_name_len, 4, 0);
+    recv(clientSocket[1], buffer_2, part2_name_len, 0);
+    strcat(buffer_2, "!");
+    strcat(recv2_file_names, buffer_2);
+    memset(buffer_2, 0, 1024);
+    printf("Server 2:%s\n", recv2_file_names);
+
+    //Server 3
+    recv(clientSocket[2], &part1_name_len, 4, 0);
+    recv(clientSocket[2], buffer_3, part1_name_len, 0);
+    strcat(buffer_3, "!");
+    strcat(recv3_file_names, buffer_3);
+    memset(buffer_3, 0, 1024);
+
+    recv(clientSocket[2], &part2_name_len, 4, 0);
+    recv(clientSocket[2], buffer_3, part2_name_len, 0);
+    strcat(buffer_3, "!");
+    strcat(recv3_file_names, buffer_3);
+    memset(buffer_3, 0, 1024);
+    printf("Server 3:%s\n", recv3_file_names);
+
+    //Server 4
+    recv(clientSocket[3], &part1_name_len, 4, 0);
+    recv(clientSocket[3], buffer_4, part1_name_len, 0);
+    strcat(buffer_4, "!");
+    strcat(recv4_file_names, buffer_4);
+    memset(buffer_4, 0, 1024);
+
+    recv(clientSocket[3], &part2_name_len, 4, 0);
+    recv(clientSocket[3], buffer_4, part2_name_len, 0);
+    strcat(buffer_4, "!");
+    strcat(recv4_file_names, buffer_4);
+    memset(buffer_4, 0, 1024);
+    printf("Server 4:%s\n", recv4_file_names);
+
+    memset(file_part_len, 0, 16);
+    
+    for(i = 1; i < 5; i++)
+    {
+        memset(a, 0, 2);
+        memset(temp_buf, 0, 1024);
+        sprintf(a, ".%d", i);
+        strcpy(temp_buf, data_file_name);
+        strcat(temp_buf, a);
+        printf("searching file:%s\n",temp_buf);
+        memset(get_ACK, 0, 5);
+        if(strstr(recv1_file_names, temp_buf))
+        {
+            printf("Part %d found in DFS1\n", i);
+
+            strcpy(get_ACK, "1");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[0], get_ACK, get_ACK_len, 0);            
+          
+            send(clientSocket[0], &i, sizeof(int), 0);
+            recv(clientSocket[0], &file_part_len[i-1], sizeof(int), 0);
+            printf("File len received:%d\n", file_part_len[i-1]);
+
+            P[i-1] = malloc(file_part_len[i-1]);
+            recv(clientSocket[0], P[i-1], file_part_len[i-1], 0);
+            
+            //Sending NACK to rest of the servers
+            memset(get_ACK, 0, 5);
+            strcpy(get_ACK, "0");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[2],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+
+            
+        }
+        else if(strstr(recv2_file_names, temp_buf))
+        {
+            printf("Part %d found in DFS2\n", i);
+            strcpy(get_ACK, "1");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[1], get_ACK, get_ACK_len, 0);            
+
+            send(clientSocket[1], &i, sizeof(int), 0);
+            recv(clientSocket[1], &file_part_len[i-1], sizeof(int), 0);
+
+            printf("File len received:%d\n", file_part_len[i-1]);
+
+            P[i-1] = malloc(file_part_len[i-1]);
+            recv(clientSocket[1], P[i-1], file_part_len[i-1], 0);
+            
+            //Sending NACK to rest of the servers
+
+             //Sending NACK to rest of the servers
+            memset(get_ACK, 0, 5);
+            strcpy(get_ACK, "0");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[2],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+
+        }
+
+        else if(strstr(recv3_file_names, temp_buf))
+        {
+            printf("Part %d found in DFS3\n", i);
+            strcpy(get_ACK, "1");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[2], get_ACK, get_ACK_len, 0);            
+
+            send(clientSocket[2], &i, sizeof(int), 0);
+            recv(clientSocket[2], &file_part_len[i-1], sizeof(int), 0);
+
+            printf("File len received:%d\n", file_part_len[i-1]);
+
+            P[i-1] = malloc(file_part_len[i-1]);
+            recv(clientSocket[2], P[i-1], file_part_len[i-1], 0);
+            
+            //Sending NACK to rest of the servers
+
+            memset(get_ACK, 0, 5);
+            strcpy(get_ACK, "0");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+        }
+
+        else if(strstr(recv4_file_names, temp_buf))
+        {
+            printf("Part %d found in DFS4\n", i);
+            
+            strcpy(get_ACK, "1");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[3], get_ACK, get_ACK_len, 0);          
+
+            send(clientSocket[3], &i, sizeof(int), 0);
+            recv(clientSocket[3], &file_part_len[i-1], sizeof(int), 0);
+
+            printf("File len received:%d\n", file_part_len[i-1]);
+
+            P[i-1] = malloc(file_part_len[i-1]);
+            recv(clientSocket[0], P[i-1], file_part_len[i-1], 0);
+            
+            //Sending NACK to rest of the servers
+
+            memset(get_ACK, 0, 5);
+            strcpy(get_ACK, "0");
+            get_ACK_len = strlen(get_ACK) + 1;
+
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
+            send(clientSocket[2],get_ACK, get_ACK_len, 0);
+        }
+        // send()
+    }
+
+    fp = fopen(data_file_name, "w");
+    for(i = 0; i < 4; i++)
+    {
+        fwrite(P[i], 1, file_part_len[i], fp);
+        free(P[i]);
+
+    }
+    fclose(fp);
+}
+
 
 
 int main(int argc, char const *argv[])
@@ -819,7 +1111,7 @@ int main(int argc, char const *argv[])
 
     // FILE *fp = NULL;
 
-     if(argc < 2)
+    if(argc < 2)
     {
         printf("Enter config file name.\n");
         exit(1);
@@ -910,10 +1202,10 @@ int main(int argc, char const *argv[])
 
         printf("\r\n     *** Main Menu ***\n\r");
         printf("Enter the following commands for file transfers / handling\n");
-        printf("get <file_name> <subfolder>\n");
-        printf("put <file_name> <subfolder>\n");
-        printf("list\n");
-        printf("mkdir <subfolder>\n");
+        printf("get <file_name> </subfolder>\n");
+        printf("put <file_name> </subfolder>\n");
+        printf("list </subfolder>\n");
+        printf("mkdir </subfolder>\n");
         printf("Type in the command followed by the <file_name>, if the command requires\n");
 
         fgets(command, sizeof(command), stdin);
@@ -967,11 +1259,34 @@ int main(int argc, char const *argv[])
         if(strstr(command_2, "Sending list"))
         {
             printf("List command found\n");
-            strcpy(subfolder, (command_2 + 13));
+            strcpy(subfolder, (command_2 + 14));
+            if(strcmp(subfolder, "\0") == 0)
+            {
+                printf("subfolder is string ending\n");
+                subfolder = NULL;
+            }
             printf("Subfolder in main:%s\n", subfolder);
             user_credentials();
             list(subfolder);
         }
+
+        if(strstr(command_2, "Sending files"))
+        {
+            strcpy(data_file_name, (command_2 + 14));
+            printf("Before strtok is:%s\n", data_file_name);
+
+            //extracting subfolder name, if any 
+            subfolder = strtok(data_file_name, " /");
+            subfolder = strtok(NULL, " /");
+            printf("subfolder is:%s\n", subfolder);
+
+            //extracting data file from string
+            data_file_name = strtok(data_file_name, " ");
+            printf("Data file name is:%s\n", data_file_name);
+            user_credentials();
+            get_file(data_file_name, subfolder);
+        }
+
     }
     
     
