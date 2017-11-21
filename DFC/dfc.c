@@ -207,6 +207,7 @@ void split_files(char *data_file_name)
     char *a = NULL;
     char *tmp = NULL;
     FILE* fp = NULL;
+    char AES_encrypt_syscommand[200];
     fp = fopen(data_file_name, "r");
     int file_string_len = strlen(data_file_name);
     if (fp == NULL)
@@ -289,10 +290,28 @@ void split_files(char *data_file_name)
         P[i] = malloc(file_part_len[i]);
     }
     
-    /*Reading "file_part_len[i]" number of bytes and storing them in different buffers, P[i]*/
+    /*Reading "file_part_len[i]" number of bytes, storing them in different buffers, P[i] and XOR encrypting them */
+    int count = 0;
+    int j;
+    char* part_buffer_temp = NULL;
+
     for(i = 0; i < 4; i++)
     {
         fread(P[i], 1, file_part_len[i], fp);
+        
+        part_buffer_temp = malloc(file_part_len[i]);
+        memcpy(part_buffer_temp, P[i], file_part_len[i]);       //copyting in temp buffer for XOR
+
+        //De-referencing the buffer for XORing its contents
+        for(j = 0; j < file_part_len[i]; j++)
+        {
+            part_buffer_temp[j] = part_buffer_temp[j] ^ password[count];
+            count++;
+            if(count == strlen(password))
+                count = 0;
+        }
+        memcpy(P[i], part_buffer_temp, file_part_len[i]);
+        free(part_buffer_temp);
     }
     fclose(fp);
 }
@@ -1101,11 +1120,33 @@ void get_file(char* data_file_name, char* subfolder)
     }
 
     fp = fopen(data_file_name, "w");
+  
+    /*Reading "file_part_len[i]" number of bytes, storing them in different buffers, P[i] and XOR decrypting them */
+    int count = 0;
+    int j;
+    char* part_buffer_temp = NULL;
+
+    printf("Before decryption process\n");
     for(i = 0; i < 4; i++)
     {
+        part_buffer_temp = malloc(file_part_len[i]);
+        memcpy(part_buffer_temp, P[i], file_part_len[i]);       //copyting in temp buffer for XOR decryption
+        
+        printf("Starting decryption...\n");
+        // the buffer decryption through XOR
+        for(j = 0; j < file_part_len[i]; j++)
+        {
+            part_buffer_temp[j] = part_buffer_temp[j] ^ password[count];
+            count++;
+            if(count == strlen(password))
+                count = 0;
+        }
+        printf("Decryption complete\n");
+        memcpy(P[i], part_buffer_temp, file_part_len[i]);
+        free(part_buffer_temp);
+
         fwrite(P[i], 1, file_part_len[i], fp);
         free(P[i]);
-
     }
     fclose(fp);
 }

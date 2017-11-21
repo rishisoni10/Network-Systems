@@ -112,11 +112,14 @@ char* config_file(char *string)
 int user_credentials_check(void)
 {
     int flag = 0;
+    char folder_tmp_buf[150];
     memset(buffer, 0, 1024);
     memset(recv_username, 0, 100);
     memset(recv_password, 0, 100);
     memset(req_password, 0, 100);
     memset(req_username, 0, 100);
+
+    struct stat st = {0};
     
     recv(newSocket,buffer,1024,0);
 
@@ -170,7 +173,25 @@ int user_credentials_check(void)
         ACK = '1';
         flag = 1;
         send(newSocket,&ACK,1,0);
+
+        strcpy(folder_tmp_buf, folder);
+        strcat(folder_tmp_buf, "/");
+        strcat(folder_tmp_buf, req_username);
+        strcat(folder_tmp_buf, "/");
+        
+        if(stat(folder_tmp_buf, &st) == -1)
+        {
+            printf("Creating user folder in DFS:%s\n", folder_tmp_buf);
+            mkdir(folder_tmp_buf, 0700);
+        }
+        else
+        {
+            printf("Username folder already exists\n");
+            printf("The folder path is:%s\n", folder_tmp_buf);
+        }
+        memset(folder_tmp_buf, 0, 150);
         // break; 
+
         return flag;
     }
     else
@@ -268,15 +289,18 @@ void put_file(char *file_name, int sockfd)
 
         //Username folder + subfolder creation
         memset(folder_tmp_buf, 0, 150);
+        printf("Original folder is:%s\n", folder);
         strcpy(folder_tmp_buf, folder);
         strcat(folder_tmp_buf, "/");
         strcat(folder_tmp_buf, req_username);
         strcat(folder_tmp_buf, "/");
+        printf("Before subfolder confirmation:%s\n", folder_tmp_buf);
         if(sub_flag == 1)
         {
             strcat(subfolder, "/");
             strcat(folder_tmp_buf, subfolder);
-            if(stat(folder, &st) == -1)
+            printf("After subfolder confirmation:%s\n", folder_tmp_buf);
+            if(stat(folder_tmp_buf, &st) == -1)
             {
                 mkdir(folder_tmp_buf, 0700);
             }
@@ -285,9 +309,9 @@ void put_file(char *file_name, int sockfd)
                 printf("Username folder & subfolder already exists\n");
                 printf("The folder path is:%s\n", folder_tmp_buf);
             }
-            strcpy(temp_buf, folder_tmp_buf);
-            strcat(temp_buf, part1_name);
-            printf("New path is:%s\n", temp_buf);
+            // strcpy(temp_buf, folder_tmp_buf);
+            // strcat(temp_buf, part1_name);
+            // printf("New path is:%s\n", temp_buf);
         }
 
         else if(sub_flag == 0)
@@ -301,11 +325,14 @@ void put_file(char *file_name, int sockfd)
                 printf("Username folder already exists\n");
                 printf("The folder path is:%s\n", folder);
             }
-            strcpy(temp_buf, folder_tmp_buf);
-            strcat(temp_buf, part1_name);
-            printf("New path is:%s\n", temp_buf);
+            // strcpy(temp_buf, folder_tmp_buf);
+            // strcat(temp_buf, part1_name);
+            // printf("New path is:%s\n", temp_buf);
         }
 
+
+        strcpy(temp_buf, folder_tmp_buf);
+        strcat(temp_buf, part1_name);
         fp_part1 = fopen(temp_buf, "w");
         if(fp_part1 == NULL)
         {
@@ -316,7 +343,7 @@ void put_file(char *file_name, int sockfd)
 
         //Putting the file in the user folder
         memset(temp_buf, 0, 100);
-        strcpy(temp_buf, folder);
+        strcpy(temp_buf, folder_tmp_buf);
         strcat(temp_buf, part2_name);
 
         fp_part2 = fopen(temp_buf, "w");
@@ -329,6 +356,8 @@ void put_file(char *file_name, int sockfd)
 
         free(file_part_1);
         free(file_part_2);
+        memset(temp_buf, 0, 100);
+
     }
     else
         printf("User credentials not correct. Try again\n");
