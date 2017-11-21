@@ -6,11 +6,11 @@
 * from the distributed file system clients: PUT, MKDIR, GET, LIST
 *
 * Tools used: GCC Compiler, GDB
-* Command to compile from source: make all
-* Command to run: make run
+* Command to compile from source: gcc -g dfs.c
+* Command to run: ./a.out /DFS<server nuumber> <port number>
 *
 * @author Rishi Soni
-* @date November 18 2017
+* @date November 19 2017
 * @version 1.0
 *
 */
@@ -203,6 +203,7 @@ int user_credentials_check(void)
         return flag;
     }
     free(file_contents);
+    return flag;
 }
 
 /**

@@ -6,11 +6,11 @@
 * to the distributed file system server (DFS): PUT, MKDIR, GET, LIST
 *
 * Tools used: GCC Compiler, GDB
-* Command to compile from source: make all
-* Command to run: make run
+* Command to compile from source: gcc -0 dfc dfc.c -lssl -lcrypto
+* Command to run: ./dfc dfc.conf
 *
 * @author Rishi Soni
-* @date November 18 2017
+* @date November 19 2017
 * @version 1.0
 *
 */
@@ -1355,7 +1355,5 @@ int main(int argc, char const *argv[])
         }
 
     }
-    
-    
     return 0;
 }
