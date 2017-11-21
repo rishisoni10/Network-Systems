@@ -96,8 +96,8 @@ void signal_handler(int signum)
         for (int i = 0; i < 4; ++i)
         {
             close(clientSocket[i]);
-            if(P[i] != NULL)
-                free(P[i]);
+            // if(P[i] != NULL)
+            //     free(P[i]);
         }
     }
     exit(0);
@@ -144,10 +144,10 @@ void user_credentials(void)
     strcat(username, password);
 
     /*---- Send user credentials from client to all servers ----*/
-    send(clientSocket[0],username,strlen(username)+1,0);
-    send(clientSocket[1],username,strlen(username)+1,0);
-    send(clientSocket[2],username,strlen(username)+1,0);
-    send(clientSocket[3],username,strlen(username)+1,0);
+    send(clientSocket[0],username,strlen(username)+1,MSG_NOSIGNAL);
+    send(clientSocket[1],username,strlen(username)+1,MSG_NOSIGNAL);
+    send(clientSocket[2],username,strlen(username)+1,MSG_NOSIGNAL);
+    send(clientSocket[3],username,strlen(username)+1,MSG_NOSIGNAL);
 
     /*---- Receive confirmation of user credentials from all servers ----*/
     printf("Waiting to receive confirmation..,...\n");
@@ -325,22 +325,22 @@ void send_part(int socket, int part_a, int part_b)
         printf("sending part 1 and 2\n");
 
         //Sending file size before sending file part
-        send(socket, &file_part_len[0], sizeof(int), 0);
-        send(socket, &file_part_len[1], sizeof(int), 0);
+        send(socket, &file_part_len[0], sizeof(int), MSG_NOSIGNAL);
+        send(socket, &file_part_len[1], sizeof(int), MSG_NOSIGNAL);
 
         string_a_len = strlen(file_parts[0])+1;
         string_b_len = strlen(file_parts[1])+1;
         //Sending file part name lengths before sending file part
-        send(socket, &string_a_len, sizeof(int), 0);
-        send(socket, &string_b_len, sizeof(int), 0);
+        send(socket, &string_a_len, sizeof(int), MSG_NOSIGNAL);
+        send(socket, &string_b_len, sizeof(int), MSG_NOSIGNAL);
 
         //Sending file part name first 
-        send(socket, file_parts[0], string_a_len, 0);
-        send(socket, file_parts[1], string_b_len, 0);
+        send(socket, file_parts[0], string_a_len, MSG_NOSIGNAL);
+        send(socket, file_parts[1], string_b_len, MSG_NOSIGNAL);
 
         //Sending actual file parts
-        send(socket, P[0], file_part_len[0], 0);
-        send(socket, P[1], file_part_len[1], 0);
+        send(socket, P[0], file_part_len[0], MSG_NOSIGNAL);
+        send(socket, P[1], file_part_len[1], MSG_NOSIGNAL);
 
         string_a_len = 0;
         string_b_len = 0;
@@ -352,23 +352,23 @@ void send_part(int socket, int part_a, int part_b)
         printf("sending part 2 and 3\n");
 
         //Sending file size before sending file part
-        send(socket, &file_part_len[1], sizeof(int), 0);
-        send(socket, &file_part_len[2], sizeof(int), 0);
+        send(socket, &file_part_len[1], sizeof(int), MSG_NOSIGNAL);
+        send(socket, &file_part_len[2], sizeof(int), MSG_NOSIGNAL);
 
         string_a_len = strlen(file_parts[1])+1;
         string_b_len = strlen(file_parts[2])+1;
 
         //Sending file part name lengths before sending file part
-        send(socket, &string_a_len, sizeof(int), 0);
-        send(socket, &string_b_len, sizeof(int), 0);
+        send(socket, &string_a_len, sizeof(int), MSG_NOSIGNAL);
+        send(socket, &string_b_len, sizeof(int), MSG_NOSIGNAL);
 
         //Sending file part name first 
-        send(socket, file_parts[1], string_a_len, 0);
-        send(socket, file_parts[2], string_b_len, 0);
+        send(socket, file_parts[1], string_a_len, MSG_NOSIGNAL);
+        send(socket, file_parts[2], string_b_len, MSG_NOSIGNAL);
 
         //Sending actual file parts
-        send(socket, P[1], file_part_len[1], 0);
-        send(socket, P[2], file_part_len[2], 0);
+        send(socket, P[1], file_part_len[1], MSG_NOSIGNAL);
+        send(socket, P[2], file_part_len[2], MSG_NOSIGNAL);
 
         string_a_len = 0;
         string_b_len = 0;
@@ -380,23 +380,23 @@ void send_part(int socket, int part_a, int part_b)
         printf("sending part 3 and 4\n");
 
         //Sending file size before sending file part
-        send(socket, &file_part_len[2], sizeof(int), 0);
-        send(socket, &file_part_len[3], sizeof(int), 0);
+        send(socket, &file_part_len[2], sizeof(int), MSG_NOSIGNAL);
+        send(socket, &file_part_len[3], sizeof(int), MSG_NOSIGNAL);
 
         string_a_len = strlen(file_parts[2])+1;
         string_b_len = strlen(file_parts[3])+1;
 
         //Sending file part name lengths before sending file part
-        send(socket, &string_a_len, sizeof(int), 0);
-        send(socket, &string_b_len, sizeof(int), 0);
+        send(socket, &string_a_len, sizeof(int), MSG_NOSIGNAL);
+        send(socket, &string_b_len, sizeof(int), MSG_NOSIGNAL);
 
         //Sending file part name first 
-        send(socket, file_parts[2], string_a_len, 0);
-        send(socket, file_parts[3], string_b_len, 0);
+        send(socket, file_parts[2], string_a_len, MSG_NOSIGNAL);
+        send(socket, file_parts[3], string_b_len, MSG_NOSIGNAL);
 
         //Sending actual file parts
-        send(socket, P[2], file_part_len[2], 0);
-        send(socket, P[3], file_part_len[3], 0);
+        send(socket, P[2], file_part_len[2], MSG_NOSIGNAL);
+        send(socket, P[3], file_part_len[3], MSG_NOSIGNAL);
 
         string_a_len = 0;
         string_b_len = 0;
@@ -409,23 +409,23 @@ void send_part(int socket, int part_a, int part_b)
         printf("sending part 4 and 1\n");
         
         //Sending file size before sending file part
-        send(socket, &file_part_len[3], sizeof(int), 0);
-        send(socket, &file_part_len[0], sizeof(int), 0);
+        send(socket, &file_part_len[3], sizeof(int), MSG_NOSIGNAL);
+        send(socket, &file_part_len[0], sizeof(int), MSG_NOSIGNAL);
 
         string_a_len = strlen(file_parts[3])+1;
         string_b_len = strlen(file_parts[0])+1;
 
         //Sending file part name lengths before sending file part
-        send(socket, &string_a_len, sizeof(int), 0);
-        send(socket, &string_b_len, sizeof(int), 0);
+        send(socket, &string_a_len, sizeof(int), MSG_NOSIGNAL);
+        send(socket, &string_b_len, sizeof(int), MSG_NOSIGNAL);
 
         //Sending file part name first 
-        send(socket, file_parts[3], string_a_len, 0);
-        send(socket, file_parts[0], string_b_len, 0);
+        send(socket, file_parts[3], string_a_len, MSG_NOSIGNAL);
+        send(socket, file_parts[0], string_b_len, MSG_NOSIGNAL);
 
         //Sending actual file parts
-        send(socket, P[3], file_part_len[3], 0);
-        send(socket, P[0], file_part_len[0], 0);
+        send(socket, P[3], file_part_len[3], MSG_NOSIGNAL);
+        send(socket, P[0], file_part_len[0], MSG_NOSIGNAL);
 
         string_a_len = 0;
         string_b_len = 0;
@@ -517,16 +517,16 @@ void put_file(char *data_file_name, char* subfolder)
         no_sub = 2;
 
         //Sending size of NACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending NACK of subfolder
-        send(clientSocket[0],"0",no_sub,0);
-        send(clientSocket[1],"0",no_sub,0);
-        send(clientSocket[2],"0",no_sub,0);
-        send(clientSocket[3],"0",no_sub,0);
+        send(clientSocket[0],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"0",no_sub,MSG_NOSIGNAL);
 
     }
     else
@@ -534,29 +534,29 @@ void put_file(char *data_file_name, char* subfolder)
         printf("subfolder is %s\n", subfolder);
         no_sub = 2;
         //Sending size of ACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending ACK of subfolder
-        send(clientSocket[0],"1",no_sub,0);
-        send(clientSocket[1],"1",no_sub,0);
-        send(clientSocket[2],"1",no_sub,0);
-        send(clientSocket[3],"1",no_sub,0);
+        send(clientSocket[0],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"1",no_sub,MSG_NOSIGNAL);
 
         //Sending subfolder length
         sub_len = strlen(subfolder) + 1;
-        send(clientSocket[0], &sub_len, 4, 0);
-        send(clientSocket[1], &sub_len, 4, 0);
-        send(clientSocket[2], &sub_len, 4, 0);
-        send(clientSocket[3], &sub_len, 4, 0);
+        send(clientSocket[0], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[1], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[2], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[3], &sub_len, 4, MSG_NOSIGNAL);
 
         //Sending subfolder
-        send(clientSocket[0], subfolder, sub_len, 0);
-        send(clientSocket[1], subfolder, sub_len, 0);
-        send(clientSocket[2], subfolder, sub_len, 0);
-        send(clientSocket[3], subfolder, sub_len, 0);
+        send(clientSocket[0], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[1], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[2], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[3], subfolder, sub_len, MSG_NOSIGNAL);
     }
 
     // printf("Freeing everything\n");
@@ -594,60 +594,60 @@ void list(char* subfolder)
         no_sub = 2;
 
         //Sending size of NACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending NACK of subfolder
-        send(clientSocket[0],"0",no_sub,0);
-        send(clientSocket[1],"0",no_sub,0);
-        send(clientSocket[2],"0",no_sub,0);
-        send(clientSocket[3],"0",no_sub,0);
+        send(clientSocket[0],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"0",no_sub,MSG_NOSIGNAL);
     }
     else
     {
         printf("subfolder is %s\n", subfolder);
         no_sub = 2;
         //Sending size of ACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending ACK of subfolder
-        send(clientSocket[0],"1",no_sub,0);
-        send(clientSocket[1],"1",no_sub,0);
-        send(clientSocket[2],"1",no_sub,0);
-        send(clientSocket[3],"1",no_sub,0);
+        send(clientSocket[0],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"1",no_sub,MSG_NOSIGNAL);
 
         //Sending subfolder length
         sub_len = strlen(subfolder) + 1;
-        send(clientSocket[0], &sub_len, 4, 0);
-        send(clientSocket[1], &sub_len, 4, 0);
-        send(clientSocket[2], &sub_len, 4, 0);
-        send(clientSocket[3], &sub_len, 4, 0);
+        send(clientSocket[0], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[1], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[2], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[3], &sub_len, 4, MSG_NOSIGNAL);
 
         //Sending subfolder name string
-        send(clientSocket[0], subfolder, sub_len, 0);
-        send(clientSocket[1], subfolder, sub_len, 0);
-        send(clientSocket[2], subfolder, sub_len, 0);
-        send(clientSocket[3], subfolder, sub_len, 0);
+        send(clientSocket[0], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[1], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[2], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[3], subfolder, sub_len, MSG_NOSIGNAL);
     }
 
     //Sync bytes
-    send(clientSocket[0],"0",no_sub,0);
-    send(clientSocket[1],"0",no_sub,0);
-    send(clientSocket[2],"0",no_sub,0);
-    send(clientSocket[3],"0",no_sub,0);
+    send(clientSocket[0],"0",no_sub,MSG_NOSIGNAL);
+    send(clientSocket[1],"0",no_sub,MSG_NOSIGNAL);
+    send(clientSocket[2],"0",no_sub,MSG_NOSIGNAL);
+    send(clientSocket[3],"0",no_sub,MSG_NOSIGNAL);
 
     printf("Waiting before recv\n");
     
     //Receiving the number of files in each server
-    recv(clientSocket[0], &file_num_1, sizeof(int), 0);
-    recv(clientSocket[1], &file_num_2, sizeof(int), 0);
-    recv(clientSocket[2], &file_num_3, sizeof(int), 0);
-    recv(clientSocket[3], &file_num_4, sizeof(int), 0);
+    recv(clientSocket[0], &file_num_1, sizeof(int), MSG_NOSIGNAL);
+    recv(clientSocket[1], &file_num_2, sizeof(int), MSG_NOSIGNAL);
+    recv(clientSocket[2], &file_num_3, sizeof(int), MSG_NOSIGNAL);
+    recv(clientSocket[3], &file_num_4, sizeof(int), MSG_NOSIGNAL);
 
     //Receiving the file name lengths and the file name from each server
     while(1)
@@ -854,16 +854,16 @@ void get_file(char* data_file_name, char* subfolder)
         no_sub = 2;
 
         //Sending size of NACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending NACK of subfolder
-        send(clientSocket[0],"0",no_sub,0);
-        send(clientSocket[1],"0",no_sub,0);
-        send(clientSocket[2],"0",no_sub,0);
-        send(clientSocket[3],"0",no_sub,0);
+        send(clientSocket[0],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"0",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"0",no_sub,MSG_NOSIGNAL);
 
     }
     else
@@ -871,29 +871,29 @@ void get_file(char* data_file_name, char* subfolder)
         printf("subfolder is %s\n", subfolder);
         no_sub = 2;
         //Sending size of ACK packet
-        send(clientSocket[0],&no_sub,4,0);
-        send(clientSocket[1],&no_sub,4,0);
-        send(clientSocket[2],&no_sub,4,0);
-        send(clientSocket[3],&no_sub,4,0);
+        send(clientSocket[0],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[1],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[2],&no_sub,4,MSG_NOSIGNAL);
+        send(clientSocket[3],&no_sub,4,MSG_NOSIGNAL);
         
         //Sending ACK of subfolder
-        send(clientSocket[0],"1",no_sub,0);
-        send(clientSocket[1],"1",no_sub,0);
-        send(clientSocket[2],"1",no_sub,0);
-        send(clientSocket[3],"1",no_sub,0);
+        send(clientSocket[0],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[1],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[2],"1",no_sub,MSG_NOSIGNAL);
+        send(clientSocket[3],"1",no_sub,MSG_NOSIGNAL);
 
         //Sending subfolder length
         sub_len = strlen(subfolder) + 1;
-        send(clientSocket[0], &sub_len, 4, 0);
-        send(clientSocket[1], &sub_len, 4, 0);
-        send(clientSocket[2], &sub_len, 4, 0);
-        send(clientSocket[3], &sub_len, 4, 0);
+        send(clientSocket[0], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[1], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[2], &sub_len, 4, MSG_NOSIGNAL);
+        send(clientSocket[3], &sub_len, 4, MSG_NOSIGNAL);
 
         //Sending subfolder name string
-        send(clientSocket[0], subfolder, sub_len, 0);
-        send(clientSocket[1], subfolder, sub_len, 0);
-        send(clientSocket[2], subfolder, sub_len, 0);
-        send(clientSocket[3], subfolder, sub_len, 0);
+        send(clientSocket[0], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[1], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[2], subfolder, sub_len, MSG_NOSIGNAL);
+        send(clientSocket[3], subfolder, sub_len, MSG_NOSIGNAL);
     }
     memset(recv1_file_names, 0, 1024);
     memset(recv2_file_names, 0, 1024);
@@ -989,10 +989,10 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "1");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[0], get_ACK, get_ACK_len, 0);            
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[0], get_ACK, get_ACK_len, MSG_NOSIGNAL);            
           
-            send(clientSocket[0], &i, sizeof(int), 0);
+            send(clientSocket[0], &i, sizeof(int), MSG_NOSIGNAL);
             recv(clientSocket[0], &file_part_len[i-1], sizeof(int), 0);
             printf("File len received:%d\n", file_part_len[i-1]);
 
@@ -1004,14 +1004,14 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "0");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[1],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[2],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[2],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[3],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
             
         }
@@ -1021,10 +1021,10 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "1");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[1], get_ACK, get_ACK_len, 0);            
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[1], get_ACK, get_ACK_len, MSG_NOSIGNAL);            
 
-            send(clientSocket[1], &i, sizeof(int), 0);
+            send(clientSocket[1], &i, sizeof(int), MSG_NOSIGNAL);
             recv(clientSocket[1], &file_part_len[i-1], sizeof(int), 0);
 
             printf("File len received:%d\n", file_part_len[i-1]);
@@ -1039,14 +1039,14 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "0");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[0],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[2],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[2],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[3],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
         }
 
@@ -1056,11 +1056,11 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "1");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[2], get_ACK, get_ACK_len, 0);            
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[2], get_ACK, get_ACK_len, MSG_NOSIGNAL);            
 
             send(clientSocket[2], &i, sizeof(int), 0);
-            recv(clientSocket[2], &file_part_len[i-1], sizeof(int), 0);
+            recv(clientSocket[2], &file_part_len[i-1], sizeof(int), MSG_NOSIGNAL);
 
             printf("File len received:%d\n", file_part_len[i-1]);
 
@@ -1073,14 +1073,14 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "0");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[0],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[1],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[3],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[3],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
         }
 
         else if(strstr(recv4_file_names, temp_buf))
@@ -1090,10 +1090,10 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "1");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[3], get_ACK, get_ACK_len, 0);          
+            send(clientSocket[3], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[3], get_ACK, get_ACK_len, MSG_NOSIGNAL);          
 
-            send(clientSocket[3], &i, sizeof(int), 0);
+            send(clientSocket[3], &i, sizeof(int), MSG_NOSIGNAL);
             recv(clientSocket[3], &file_part_len[i-1], sizeof(int), 0);
 
             printf("File len received:%d\n", file_part_len[i-1]);
@@ -1107,14 +1107,14 @@ void get_file(char* data_file_name, char* subfolder)
             strcpy(get_ACK, "0");
             get_ACK_len = strlen(get_ACK) + 1;
 
-            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[0],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[0], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[0],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[1],get_ACK, get_ACK_len, 0); 
+            send(clientSocket[1], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[1],get_ACK, get_ACK_len, MSG_NOSIGNAL); 
 
-            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), 0);  
-            send(clientSocket[2],get_ACK, get_ACK_len, 0);
+            send(clientSocket[2], &get_ACK_len, sizeof(get_ACK_len), MSG_NOSIGNAL);  
+            send(clientSocket[2],get_ACK, get_ACK_len, MSG_NOSIGNAL);
         }
         // send()
     }
@@ -1263,10 +1263,10 @@ int main(int argc, char const *argv[])
         fgets(command, sizeof(command), stdin);
         command[strcspn(command, "\n")] = 0;
         printf("Sending entered command to server\n");
-        sending = send(clientSocket[0],command,1024,0);
-        sending = send(clientSocket[1],command,1024,0);
-        sending = send(clientSocket[2],command,1024,0);
-        sending = send(clientSocket[3],command,1024,0);
+        sending = send(clientSocket[0],command,1024,MSG_NOSIGNAL);
+        sending = send(clientSocket[1],command,1024,MSG_NOSIGNAL);
+        sending = send(clientSocket[2],command,1024,MSG_NOSIGNAL);
+        sending = send(clientSocket[3],command,1024,MSG_NOSIGNAL);
 
         if(sending < 0)
         {
