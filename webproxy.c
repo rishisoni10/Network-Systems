@@ -35,6 +35,44 @@ static inline int file_len(FILE *fp)
     return len;
 }
 
+int blocked_hosts(char *path)
+{
+    char *blocked_list = "list_of_blocked_host.txt";
+    char *URL_with_slash = NULL;
+    char *find_str = NULL;
+    char *URL = NULL;
+    char blocked_website[MAX_BUFF_SIZE];
+    char buff[10000];
+    int ret;
+
+    FILE *fp = fopen(blocked_list, "r");
+    if (fp == NULL)
+    {
+        perror("fopen - blocked hosts()");
+        return 0;
+    }
+    URL_with_slash = strstr(path, "//");
+    URL_with_slash += 2;
+    for (int i = 0; i < strlen(URL_with_slash); i++)
+    {
+        if(URL_with_slash[i] == '/')
+            break;
+        blocked_website[i] = URL_with_slash[i];
+    }
+    printf("blocked website is:%s\n", blocked_website);
+
+    int file_size = file_len(fp);
+    fread(buff, 1, file_size, fp);
+    find_str = strstr(buff, blocked_website);
+    if(find_str != NULL)
+    {
+        ret = 1;
+    }
+    fclose(fp);
+    return ret;
+
+}
+
 //Find out the creation time of the file
 void file_timestamp(char *pwd, char *time_of_file)
 {
@@ -193,22 +231,23 @@ void webserver_init(void)
     for(pt = res; pt!=NULL; pt=pt->ai_next) 
     {
         sockfd = socket (pt->ai_family, pt->ai_socktype, 0);
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &s, sizeof(int)) < 0)  
+        {
+            perror("setsockopt");
+            exit(1);
+        }
+
         if (bind(sockfd, pt->ai_addr, pt->ai_addrlen) == 0) 
             break;
     }
-
+    freeaddrinfo(res);  
+    
     if(pt==NULL) 
     {
         perror ("socket() or bind() error");
         exit(1);
     }
 
-    freeaddrinfo(res);  
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &s, sizeof(int)) < 0)  
-    {
-        printf("setsockopt");
-        exit(1);
-    }
     if (listen(sockfd, NUM_CONNECTIONS) != 0 ) 
     {
         perror("listen");
@@ -323,6 +362,7 @@ void proxy_response(int sock, char* timeout, char *pwd)
 
     char unsupported_method[MAX_BUFF_SIZE] = "<html><body><H1>Error 400 Bad Request: Invalid Method </H1></body></html>";
     char unsupported_http_version[MAX_BUFF_SIZE] =  "<html><body><H1>Error 400 Bad Request: Invalid HTTP Version</H1></body></html>";
+    char blocked_request[MAX_BUFF_SIZE] =  "<html><body><H1>Error 403 ERROR Forbidden: Invalid request</H1></body></html>";
 
     if(read(sock, buff_from_client, MAX_BUFF_SIZE) < 0)
     {
@@ -335,14 +375,24 @@ void proxy_response(int sock, char* timeout, char *pwd)
         sscanf(buff_from_client, "%s %s %s", method, path, http_version);   //separate out different parts of the received message
         printf("buff_from_client: %s %s %s\n", method, path, http_version);
 
+
+        //Check if requested remote host is blocked
+        if (blocked_hosts(path))
+        {
+            write(sock,blocked_request,strlen(blocked_request));
+            printf("ERROR 403 Forbidden");
+            exit(1);
+        }
+        
         //checking supported of HTTP version
-        if ((strncmp(http_version,"HTTP/1.0",strlen("HTTP/1.0")) == 0)  && (strncmp(http_version,"HTTP/1.1",strlen("HTTP/1.1")) == 0)) 
+        else if ((strncmp(http_version,"HTTP/1.0",strlen("HTTP/1.0")) == 0)  && (strncmp(http_version,"HTTP/1.1",strlen("HTTP/1.1")) == 0)) 
         {
             write(sock,unsupported_http_version,strlen(unsupported_http_version));
             printf("Unsupported HTTP version");
             exit(1);
         }
-        if(strstr(method, "GET") != NULL)
+        
+        else if(strstr(method, "GET") != NULL)
         {
             printf("Found GET method\n");
             URL_with_slash = strstr(path, "//");
