@@ -200,16 +200,10 @@ void prefetch_website(char *pwd, int sock)
                 // printf("\nbuffer is: %s\n",buffer);
                 fwrite(temp_buffer, 1, readbytes,fp_write);
             }while(readbytes > 0);
-
-            // memset(pwd,0,);
            
         }
     }
-
-
-
     fclose(fp_open);
-
 }
 
 void webserver_init(void)
