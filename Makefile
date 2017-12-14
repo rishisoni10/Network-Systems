@@ -1,6 +1,14 @@
-all:
-	gcc -g webserver.c
-run:
-	./a.out
+CC=gcc
+CFLAGS = -g 
+
+
+all: webproxy
+
+
+webproxy: webproxy.o 
+	$(CC) -o webproxy webproxy.o -lcrypto
+
+webproxy.o: webproxy.c
+
 clean:
-	rm -rf a.out
+	rm -f webproxy webproxy.o 
